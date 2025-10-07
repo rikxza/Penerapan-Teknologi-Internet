@@ -21,3 +21,6 @@
 14.00 : OTW objek wisata
 15.00 : sampe di objek wisata
 15.30 : free time
+
+10 Oktober 2025
+19.00 : Pulang
