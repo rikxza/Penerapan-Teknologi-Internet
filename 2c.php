@@ -60,10 +60,10 @@ $harga=0;
 $ongkos_kirim=0;
 $diskon_status=0;
 $total_diskon=0;
-$jumlah=$_POST[jumlah];
-$kode=$_POST[kode];
-$kota_kirim=$_POST[kota_kirim];
-$status_member=$_POST[status_member];
+$jumlah=$_POST["jumlah"];
+$kode=$_POST["kode"];
+$kota_kirim=$_POST["kota_kirim"];
+$status_member=$_POST["status_member"];
 $submit = $_POST['Hitung'];
 ?>
 <?php if($submit) 
@@ -198,4 +198,5 @@ $totalbayar=$subtotal-$total_diskon+$ongkos_kirim;
 </center>
 <p>&nbsp;</p>
 </body>
+
 </html>
