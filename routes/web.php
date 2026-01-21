@@ -20,6 +20,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/ai-chat/send', [AiController::class, 'chat'])->name('ai.chat.send');
     Route::get('/ai/insight', [AiController::class, 'getInsight'])->name('ai.insight');
 
+    // SCAN STRUK (Receipt Scanning dengan OpenAI Vision)
+    Route::get('/scan-receipt', function () { return view('scan-receipt'); })->name('scan.receipt');
+    Route::post('/scan-receipt/analyze', [AiController::class, 'scanReceipt'])->name('scan.receipt.analyze');
+    Route::post('/scan-receipt/store', [AiController::class, 'storeReceipt'])->name('scan.receipt.store');
+
     // Transactions
     Route::delete('/transactions/delete-all', [TransactionController::class, 'deleteAll'])->name('transactions.deleteAll');
     
