@@ -140,7 +140,10 @@ class TransactionController extends Controller
     }
 
     // Methods untuk view (form)
-    public function create() { return view('transactions.create'); }
+    // Form create sudah ada di index.blade.php, jadi redirect saja
+    public function create() { 
+        return redirect()->route('transactions.index')->with('openForm', true); 
+    }
     public function edit(Transaction $transaction)
     {
         if ($transaction->user_id !== Auth::id()) { abort(403); }

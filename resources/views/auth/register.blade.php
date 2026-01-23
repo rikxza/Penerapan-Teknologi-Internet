@@ -67,9 +67,7 @@
     {{-- Header --}}
     <header class="flex justify-between items-center p-6 md:p-8 relative z-20">
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 money-gradient rounded-xl rotate-12 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                <span class="font-black text-white text-xl -rotate-12">$</span>
-            </div>
+            <img src="{{ asset('images/logo.png') }}" alt="MoneyGement" class="w-10 h-10 object-contain">
             <span class="text-xl font-black tracking-tight text-emerald-700 dark:text-emerald-400">Money<span class="text-slate-800 dark:text-white">Gement</span></span>
         </div>
         <div class="flex items-center gap-4">

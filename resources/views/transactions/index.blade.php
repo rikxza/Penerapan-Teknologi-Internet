@@ -1,6 +1,6 @@
 <x-app-layout>
     {{-- Alpine.js: showForm untuk toggle, filter untuk nyaring data --}}
-    <div x-data="{ showForm: false, filter: 'all' }">
+    <div x-data="{ showForm: {{ session('openForm') ? 'true' : 'false' }}, filter: 'all' }">
         
         <x-slot name="header">Transaksi</x-slot>
         <x-slot name="subtitle">Kelola pemasukan dan pengeluaran kamu</x-slot>

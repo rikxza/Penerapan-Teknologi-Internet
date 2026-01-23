@@ -20,8 +20,8 @@ class DashboardController extends Controller
             ->whereYear('transaction_date', $now->year)
             ->sum('amount');
 
-        // 2. PENGELUARAN TRANSAKSI (Belanja Riil)
-        $totalExpense = Transaction::where('user_id', $user->id)
+        // 2. PENGELUARAN RIIL (Belanja, tidak termasuk alokasi budget)
+        $totalRealExpense = Transaction::where('user_id', $user->id)
             ->where('type', 'expense')
             ->where('description', 'NOT LIKE', '%Budget:%')
             ->whereMonth('transaction_date', $now->month)
@@ -36,10 +36,13 @@ class DashboardController extends Controller
             ->whereYear('transaction_date', $now->year)
             ->sum('amount');
 
-        // 4. SALDO BERSIH (Pemasukan - (Belanja + Alokasi))
-        $netSavings = $totalIncome - ($totalExpense + $totalBudgetAllocation);
+        // 4. TOTAL PENGELUARAN (semua expense untuk display)
+        $totalExpense = $totalRealExpense + $totalBudgetAllocation;
 
-        // 5. BUDGET PROGRESS & CHART
+        // 5. SALDO BERSIH
+        $netSavings = $totalIncome - $totalExpense;
+
+        // 6. BUDGET PROGRESS & CHART
         $activeBudgets = Budget::where('user_id', $user->id)
             ->with('category')
             ->get();
@@ -59,11 +62,40 @@ class DashboardController extends Controller
             $budget->percentage = ($budget->amount > 0) ? round(($realizedAmount / $budget->amount) * 100, 1) : 0;
         }
 
+        // 7. RECENT TRANSACTIONS
         $transactions = Transaction::where('user_id', $user->id)
             ->with('category') 
             ->orderBy('transaction_date', 'desc')
             ->limit(5)
             ->get();
+
+        // 8. FINANCIAL HEALTH SCORE (0-100)
+        $savingsRatio = $totalIncome > 0 ? (($totalIncome - $totalExpense) / $totalIncome) * 100 : 0;
+        $budgetScore = 100;
+        $budgetCount = $activeBudgets->count();
+        if ($budgetCount > 0) {
+            $overBudgetCount = $activeBudgets->filter(fn($b) => $b->percentage > 100)->count();
+            $budgetScore = (($budgetCount - $overBudgetCount) / $budgetCount) * 100;
+        }
+        $healthScore = min(100, max(0, round(($savingsRatio * 0.5) + ($budgetScore * 0.5))));
+        $healthStatus = match(true) {
+            $healthScore >= 80 => 'Excellent! Keep it up.',
+            $healthScore >= 60 => 'Good. Room to improve.',
+            $healthScore >= 40 => 'Fair. Watch your spending.',
+            default => 'Needs attention.'
+        };
+
+        // 9. EXPENSE BY CATEGORY FOR PIE CHART
+        $expenseByCategory = Transaction::where('user_id', $user->id)
+            ->where('type', 'expense')
+            ->whereMonth('transaction_date', $now->month)
+            ->whereYear('transaction_date', $now->year)
+            ->with('category')
+            ->get()
+            ->groupBy(fn($t) => $t->category->name ?? 'Lainnya')
+            ->map(fn($group) => $group->sum('amount'))
+            ->sortDesc()
+            ->take(6); // Top 6 categories
 
         return view('dashboard', [
             'totalIncome' => $totalIncome,
@@ -73,6 +105,9 @@ class DashboardController extends Controller
             'activeBudgets' => $activeBudgets,
             'transactions' => $transactions, 
             'currentMonth' => $now->translatedFormat('F Y'),
+            'healthScore' => $healthScore,
+            'healthStatus' => $healthStatus,
+            'expenseByCategory' => $expenseByCategory,
         ]);
     }
 }
