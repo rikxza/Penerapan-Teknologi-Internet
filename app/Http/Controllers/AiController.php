@@ -19,7 +19,7 @@ class AiController extends Controller
     private function callGemini(string $prompt, ?string $imageBase64 = null, ?string $mimeType = null)
     {
         $apiKey = $this->getGeminiApiKey();
-        
+
         // Jika ada gambar, gunakan format multimodal
         if ($imageBase64 && $mimeType) {
             $contents = [
@@ -59,10 +59,10 @@ class AiController extends Controller
         );
 
         $result = $response->json();
-        
+
         // Debug: Log full response from Gemini
         \Log::info('Gemini API Full Response: ' . json_encode($result));
-        
+
         return $result['candidates'][0]['content']['parts'][0]['text'] ?? null;
     }
 
@@ -146,7 +146,7 @@ class AiController extends Controller
             ->groupByRaw("COALESCE(categories.name, 'Tanpa Kategori')")
             ->orderByDesc('total_amount')
             ->first();
-        
+
         $data = [
             "total_income" => number_format($totalIncome, 0, ',', '.'),
             "total_expense" => number_format($totalExpense, 0, ',', '.'),
@@ -244,8 +244,17 @@ Jika ada informasi yang tidak terbaca, beri nilai null. Total amount harus berup
             'amount' => 'required|numeric|min:1',
             'category_id' => 'required|exists:categories,id',
             'description' => 'nullable|string|max:255',
-            'transaction_date' => 'required|date',
+            'transaction_date' => 'required|date|before_or_equal:today',
         ]);
+
+        // Parse and validate transaction date - if AI misread and date is too old, use today
+        $parsedDate = Carbon::parse($request->transaction_date);
+        $oneYearAgo = Carbon::now()->subYear();
+
+        // If the date is more than 1 year old, AI probably misread - use today instead
+        if ($parsedDate->lt($oneYearAgo)) {
+            $parsedDate = Carbon::now();
+        }
 
         $transaction = Transaction::create([
             'user_id' => Auth::id(),
@@ -253,7 +262,7 @@ Jika ada informasi yang tidak terbaca, beri nilai null. Total amount harus berup
             'amount' => $request->amount,
             'type' => 'expense',
             'description' => $request->description ?? 'Dari Scan Struk',
-            'transaction_date' => $request->transaction_date,
+            'transaction_date' => $parsedDate->setTimeFrom(now()),
         ]);
 
         return response()->json([

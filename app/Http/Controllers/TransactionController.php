@@ -14,38 +14,88 @@ class TransactionController extends Controller
     /**
      * Halaman utama transaksi
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
 
+        // Get selected period from request or use current month
+        $period = $request->input('period');
+        if ($period && preg_match('/^(\d{4})-(\d{2})$/', $period, $matches)) {
+            $selectedYear = (int) $matches[1];
+            $selectedMonth = (int) $matches[2];
+        } else {
+            $selectedMonth = Carbon::now()->month;
+            $selectedYear = Carbon::now()->year;
+        }
+        $filterDate = Carbon::createFromDate($selectedYear, $selectedMonth, 1);
+
         // Ambil kategori milik user atau kategori default (null)
-        $categories = Category::where(function($query) use ($user) {
-                $query->where('user_id', $user->id)
-                      ->orWhereNull('user_id');
-            })
+        $categories = Category::where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                ->orWhereNull('user_id');
+        })
             ->get()
             ->groupBy('type');
 
-        // Ambil transaksi user (pagination 10 data)
+        // Ambil transaksi user (pagination 10 data) - filtered by selected month
         // Diurutkan berdasarkan transaction_date DESC agar yang baru (berdasarkan jam) di atas
         $transactions = Transaction::where('user_id', $user->id)
+            ->whereMonth('transaction_date', $selectedMonth)
+            ->whereYear('transaction_date', $selectedYear)
             ->with('category')
             ->orderBy('transaction_date', 'desc')
-            ->paginate(10);
+            ->paginate(10)
+            ->appends(['period' => sprintf('%d-%02d', $selectedYear, $selectedMonth)]);
 
         // Statistik singkat
         $totalTransactions = Transaction::where('user_id', $user->id)->count();
+
+        // Monthly stats for statistics bar (filtered by selected month)
+        $monthlyIncome = Transaction::where('user_id', $user->id)
+            ->where('type', 'income')
+            ->whereMonth('transaction_date', $selectedMonth)
+            ->whereYear('transaction_date', $selectedYear)
+            ->sum('amount');
+
+        $monthlyExpense = Transaction::where('user_id', $user->id)
+            ->where('type', 'expense')
+            ->whereMonth('transaction_date', $selectedMonth)
+            ->whereYear('transaction_date', $selectedYear)
+            ->sum('amount');
+
+        $monthlyTransactionCount = Transaction::where('user_id', $user->id)
+            ->whereMonth('transaction_date', $selectedMonth)
+            ->whereYear('transaction_date', $selectedYear)
+            ->count();
 
         // Budget aktif (yang belum expired)
         $activeBudgets = Budget::where('user_id', $user->id)
             ->where('end_date', '>=', now())
             ->count();
 
+        // Generate list of available months (last 12 months)
+        $availableMonths = collect();
+        for ($i = 0; $i < 12; $i++) {
+            $date = Carbon::now()->subMonths($i);
+            $availableMonths->push([
+                'month' => $date->month,
+                'year' => $date->year,
+                'label' => $date->translatedFormat('F Y'),
+            ]);
+        }
+
         return view('transactions.index', [
             'categories' => $categories,
             'transactions' => $transactions,
             'totalTransactions' => $totalTransactions,
             'activeBudgets' => $activeBudgets,
+            'monthlyIncome' => $monthlyIncome,
+            'monthlyExpense' => $monthlyExpense,
+            'monthlyTransactionCount' => $monthlyTransactionCount,
+            'selectedMonth' => $selectedMonth,
+            'selectedYear' => $selectedYear,
+            'filterDate' => $filterDate,
+            'availableMonths' => $availableMonths,
         ]);
     }
 
@@ -56,11 +106,11 @@ class TransactionController extends Controller
     {
         // 1. Validasi Input (Hanya aturan validasi di dalam sini)
         $validated = $request->validate([
-            'type'             => ['required', 'string', 'in:income,expense'],
-            'amount'           => ['required', 'numeric', 'min:1'],
-            'category_id'      => ['required', 'exists:categories,id'],
-            'transaction_date' => ['required', 'date'],
-            'description'      => ['required', 'string', 'min:3', 'max:255'],
+            'type' => ['required', 'string', 'in:income,expense'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'category_id' => ['required', 'exists:categories,id'],
+            'transaction_date' => ['required', 'date', 'before_or_equal:today'],
+            'description' => ['required', 'string', 'min:3', 'max:255'],
         ]);
 
         // 2. Olah data setelah validasi sukses
@@ -70,7 +120,7 @@ class TransactionController extends Controller
          * agar jamnya tidak 00:00.
          */
         $validated['transaction_date'] = Carbon::parse($request->transaction_date)
-                                            ->setTimeFrom(now());
+            ->setTimeFrom(now());
 
         // 3. Eksekusi simpan ke database
         Transaction::create($validated);
@@ -78,7 +128,7 @@ class TransactionController extends Controller
         // 4. Response dengan format mata uang user
         $formattedAmount = Auth::user()->formatCurrency($validated['amount']);
         $typeLabel = ($validated['type'] === 'income' ? 'Pemasukan' : 'Pengeluaran');
-        
+
         $message = "Transaksi $typeLabel sebesar $formattedAmount berhasil dicatat!";
 
         return redirect()
@@ -97,17 +147,17 @@ class TransactionController extends Controller
         }
 
         $validated = $request->validate([
-            'type'             => ['required', 'string', 'in:income,expense'],
-            'amount'           => ['required', 'numeric', 'min:1'],
-            'category_id'      => ['required', 'exists:categories,id'],
-            'transaction_date' => ['required', 'date'],
-            'description'      => ['required', 'string', 'min:3', 'max:255'],
+            'type' => ['required', 'string', 'in:income,expense'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'category_id' => ['required', 'exists:categories,id'],
+            'transaction_date' => ['required', 'date', 'before_or_equal:today'],
+            'description' => ['required', 'string', 'min:3', 'max:255'],
         ]);
 
         // Tetap pertahankan jam lama atau update ke jam sekarang jika tanggal berubah
         // Di sini kita update jamnya mengikuti waktu edit jika ingin presisi
         $validated['transaction_date'] = Carbon::parse($request->transaction_date)
-                                            ->setTimeFrom(now());
+            ->setTimeFrom(now());
 
         $transaction->update($validated);
 
@@ -141,12 +191,15 @@ class TransactionController extends Controller
 
     // Methods untuk view (form)
     // Form create sudah ada di index.blade.php, jadi redirect saja
-    public function create() { 
-        return redirect()->route('transactions.index')->with('openForm', true); 
+    public function create()
+    {
+        return redirect()->route('transactions.index')->with('openForm', true);
     }
     public function edit(Transaction $transaction)
     {
-        if ($transaction->user_id !== Auth::id()) { abort(403); }
+        if ($transaction->user_id !== Auth::id()) {
+            abort(403);
+        }
         return view('transactions.edit', compact('transaction'));
     }
 }
