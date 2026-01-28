@@ -33,27 +33,23 @@ class DashboardController extends Controller
             ->whereYear('transaction_date', $now->year)
             ->sum('amount');
 
-        // 3. PENGELUARAN BUDGET (Alokasi/Jatah)
-        $totalBudgetAllocation = Transaction::where('user_id', $user->id)
-            ->where('type', 'expense')
-            ->where('description', 'LIKE', '%Budget:%')
-            ->whereMonth('transaction_date', $now->month)
-            ->whereYear('transaction_date', $now->year)
-            ->sum('amount');
-
-        // 4. TOTAL PENGELUARAN (semua expense untuk display)
-        $totalExpense = $totalRealExpense + $totalBudgetAllocation;
-
-        // 5. SALDO BERSIH
-        $netSavings = $totalIncome - $totalExpense;
-
-        // 6. BUDGET PROGRESS & CHART
+        // 3. BUDGET PROGRESS & CHART (Move up for calculation)
         $activeBudgets = Budget::where('user_id', $user->id)
             ->where('start_date', '<=', $now->format('Y-m-d'))
             ->where('end_date', '>=', $now->format('Y-m-d'))
             ->with('category')
             ->get();
 
+        // 4. TOTAL BUDGET ALLOCATION (Sum of active budgets)
+        $totalBudgetAllocation = $activeBudgets->sum('amount');
+
+        // 5. TOTAL PENGELUARAN (semua expense untuk display)
+        $totalExpense = $totalRealExpense + $totalBudgetAllocation;
+
+        // 6. SALDO BERSIH
+        $netSavings = $totalIncome - $totalExpense;
+
+        // 7. CALCULATE BUDGET REALIZED
         foreach ($activeBudgets as $budget) {
             $realizedAmount = Transaction::where('user_id', $user->id)
                 ->where('category_id', $budget->category_id)
@@ -69,7 +65,11 @@ class DashboardController extends Controller
             $budget->percentage = ($budget->amount > 0) ? round(($realizedAmount / $budget->amount) * 100, 1) : 0;
         }
 
-        // 7. RECENT TRANSACTIONS
+        // 8. TOTAL REALIZED PERCENTAGE
+        $totalBudgetRealized = $activeBudgets->sum('realized');
+        $totalBudgetPercentage = ($totalBudgetAllocation > 0) ? round(($totalBudgetRealized / $totalBudgetAllocation) * 100, 1) : 0;
+
+        // 9. RECENT TRANSACTIONS
         $transactions = Transaction::where('user_id', $user->id)
             ->with('category')
             ->orderBy('transaction_date', 'desc')
@@ -115,6 +115,8 @@ class DashboardController extends Controller
             'healthScore' => $healthScore,
             'healthStatus' => $healthStatus,
             'expenseByCategory' => $expenseByCategory,
+            'totalBudgetRealized' => $totalBudgetRealized,
+            'totalBudgetPercentage' => $totalBudgetPercentage,
         ]);
     }
 }
