@@ -14,6 +14,11 @@ class DashboardController extends Controller
         $now = Carbon::now();
 
         // 1. PEMASUKAN
+        // FIX: Rename history 'Add Budget' jadi 'Alokasi Budget' (Run once then remove)
+        Transaction::where('user_id', $user->id)
+            ->where('description', 'LIKE', 'Add Budget:%')
+            ->update(['description' => \DB::raw("REPLACE(description, 'Add Budget:', 'Alokasi Budget :')")]);
+
         $totalIncome = Transaction::where('user_id', $user->id)
             ->where('type', 'income')
             ->whereMonth('transaction_date', $now->month)
@@ -44,27 +49,29 @@ class DashboardController extends Controller
 
         // 6. BUDGET PROGRESS & CHART
         $activeBudgets = Budget::where('user_id', $user->id)
+            ->where('start_date', '<=', $now->format('Y-m-d'))
+            ->where('end_date', '>=', $now->format('Y-m-d'))
             ->with('category')
             ->get();
-        
+
         foreach ($activeBudgets as $budget) {
             $realizedAmount = Transaction::where('user_id', $user->id)
                 ->where('category_id', $budget->category_id)
                 ->where('type', 'expense')
-                ->where('description', 'NOT LIKE', '%Budget:%') 
+                ->where('description', 'NOT LIKE', '%Budget:%')
                 ->whereBetween('transaction_date', [
-                    $budget->start_date . ' 00:00:00', 
+                    $budget->start_date . ' 00:00:00',
                     $budget->end_date . ' 23:59:59'
                 ])
                 ->sum('amount');
-            
+
             $budget->realized = $realizedAmount;
             $budget->percentage = ($budget->amount > 0) ? round(($realizedAmount / $budget->amount) * 100, 1) : 0;
         }
 
         // 7. RECENT TRANSACTIONS
         $transactions = Transaction::where('user_id', $user->id)
-            ->with('category') 
+            ->with('category')
             ->orderBy('transaction_date', 'desc')
             ->limit(5)
             ->get();
@@ -78,7 +85,7 @@ class DashboardController extends Controller
             $budgetScore = (($budgetCount - $overBudgetCount) / $budgetCount) * 100;
         }
         $healthScore = min(100, max(0, round(($savingsRatio * 0.5) + ($budgetScore * 0.5))));
-        $healthStatus = match(true) {
+        $healthStatus = match (true) {
             $healthScore >= 80 => 'Excellent! Keep it up.',
             $healthScore >= 60 => 'Good. Room to improve.',
             $healthScore >= 40 => 'Fair. Watch your spending.',
@@ -103,7 +110,7 @@ class DashboardController extends Controller
             'totalBudgetAllocation' => $totalBudgetAllocation,
             'netSavings' => $netSavings,
             'activeBudgets' => $activeBudgets,
-            'transactions' => $transactions, 
+            'transactions' => $transactions,
             'currentMonth' => $now->translatedFormat('F Y'),
             'healthScore' => $healthScore,
             'healthStatus' => $healthStatus,

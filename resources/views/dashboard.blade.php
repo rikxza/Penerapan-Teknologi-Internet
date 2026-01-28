@@ -74,7 +74,8 @@
                             class="text-xs font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest mb-2">
                             Your Financial Health Score</p>
                         <h2 class="text-3xl md:text-4xl font-black text-emerald-800 dark:text-white">
-                            {{ $healthScore }}/100</h2>
+                            {{ $healthScore }}/100
+                        </h2>
                         <p class="text-emerald-600/80 dark:text-emerald-400/80 mt-2 font-medium">{{ $healthStatus }}</p>
 
                         <div class="flex flex-wrap gap-2 mt-4">
@@ -111,15 +112,27 @@
                     </div>
                 </div>
 
-                <div class="glass-card rounded-2xl p-4 flex-1 mb-4">
-                    <p class="text-sm text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                        @if($totalExpense > $totalIncome)
-                            ⚠️ Pengeluaranmu melebihi pemasukan bulan ini. Coba kurangi belanja non-esensial!
-                        @else
-                            ✨ Keuanganmu sehat! Kamu sudah menabung <span
-                                class="font-bold text-emerald-600 dark:text-emerald-400">{{ Auth::user()->formatCurrency($totalIncome - $totalExpense) }}</span>
-                            bulan ini.
-                        @endif
+                <div class="glass-card rounded-2xl p-4 flex-1 mb-4" x-data="{ insight: 'Memuat insight...', loading: true, loadInsight() { 
+                        this.loading = true; 
+                        fetch('{{ route('ai.insight') }}', { headers: { 'Accept': 'application/json' } })
+                            .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                            .then(d => { this.insight = d.insight || d.message || 'Tidak ada insight'; this.loading = false; })
+                            .catch(e => { this.insight = '⚠️ Gagal memuat: ' + e.message; this.loading = false; });
+                    } }">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">AI Insight</span>
+                        <button @click="loadInsight()"
+                            class="text-emerald-500 hover:text-emerald-400 transition-colors p-1"
+                            title="Refresh Insight">
+                            <svg class="w-4 h-4" :class="loading && 'animate-spin'" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-emerald-700 dark:text-emerald-300 leading-relaxed whitespace-pre-line"
+                        x-text="insight" x-init="loadInsight()">
                     </p>
                 </div>
 
@@ -147,7 +160,8 @@
                         </div>
                     </div>
                     <p class="text-xl font-black text-emerald-800 dark:text-white">
-                        {{ Auth::user()->formatCurrency($netSavings) }}</p>
+                        {{ Auth::user()->formatCurrency($netSavings) }}
+                    </p>
                 </div>
 
                 {{-- Income --}}
@@ -164,7 +178,8 @@
                         </div>
                     </div>
                     <p class="text-xl font-black text-emerald-800 dark:text-white">
-                        {{ Auth::user()->formatCurrency($totalIncome) }}</p>
+                        {{ Auth::user()->formatCurrency($totalIncome) }}
+                    </p>
                 </div>
 
                 {{-- Expense --}}
@@ -180,7 +195,8 @@
                         </div>
                     </div>
                     <p class="text-xl font-black text-emerald-800 dark:text-white">
-                        {{ Auth::user()->formatCurrency($totalExpense) }}</p>
+                        {{ Auth::user()->formatCurrency($totalExpense) }}
+                    </p>
                 </div>
 
                 {{-- Savings --}}
@@ -197,7 +213,8 @@
                         </div>
                     </div>
                     <p class="text-xl font-black text-emerald-800 dark:text-white">
-                        {{ Auth::user()->formatCurrency($totalBudgetAllocation) }}</p>
+                        {{ Auth::user()->formatCurrency($totalBudgetAllocation) }}
+                    </p>
                 </div>
             </div>
 
@@ -250,7 +267,8 @@
                                 </div>
                                 <div>
                                     <p class="text-sm font-bold text-emerald-800 dark:text-white">
-                                        {{ $transaction->description ?? 'No Description' }}</p>
+                                        {{ $transaction->description ?? 'No Description' }}
+                                    </p>
                                     <p class="text-[10px] text-emerald-600/60 dark:text-emerald-400/60 font-medium">
                                         {{ \Carbon\Carbon::parse($transaction->transaction_date)->diffForHumans() }}
                                     </p>

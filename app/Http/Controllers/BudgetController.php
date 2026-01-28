@@ -19,9 +19,9 @@ class BudgetController extends Controller
 
         // Kategori expense (global + user)
         $categories = Category::where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->orWhereNull('user_id');
-            })
+            $q->where('user_id', $user->id)
+                ->orWhereNull('user_id');
+        })
             ->where('type', 'expense')
             ->orderBy('name')
             ->get();
@@ -67,10 +67,10 @@ class BudgetController extends Controller
         $user = Auth::user();
 
         $validated = $request->validate([
-            'category_id'        => 'nullable|exists:categories,id',
-            'new_category_name'  => 'nullable|string|max:100',
-            'amount'             => 'required|numeric|min:1000',
-            'period'             => 'required|in:monthly,weekly',
+            'category_id' => 'nullable|exists:categories,id',
+            'new_category_name' => 'nullable|string|max:100',
+            'amount' => 'required|numeric|min:1000',
+            'period' => 'required|in:monthly,weekly',
         ]);
 
         /**
@@ -85,8 +85,8 @@ class BudgetController extends Controller
             if (!$category) {
                 $category = Category::create([
                     'user_id' => $user->id,
-                    'name'    => ucfirst($request->new_category_name),
-                    'type'    => 'expense',
+                    'name' => ucfirst($request->new_category_name),
+                    'type' => 'expense',
                 ]);
             }
 
@@ -123,13 +123,13 @@ class BudgetController extends Controller
          */
         $budget = Budget::updateOrCreate(
             [
-                'user_id'     => $user->id,
+                'user_id' => $user->id,
                 'category_id' => $categoryId,
-                'start_date'  => $start->format('Y-m-d'),
+                'start_date' => $start->format('Y-m-d'),
             ],
             [
-                'amount'   => $newAmount,
-                'period'   => $validated['period'],
+                'amount' => $newAmount,
+                'period' => $validated['period'],
                 'end_date' => $end->format('Y-m-d'),
             ]
         );
@@ -141,9 +141,9 @@ class BudgetController extends Controller
          */
         if ($diff != 0) {
             $categoryName = Category::find($categoryId)->name ?? 'Kategori';
-            
+
             if ($oldAmount == 0) {
-                $description = 'Add Budget: ' . $categoryName;
+                $description = 'Alokasi Budget: ' . $categoryName;
             } else {
                 $description = ($diff > 0 ? 'Top Up Budget: ' : 'Pengurangan Budget: ') . $categoryName;
             }
@@ -204,9 +204,21 @@ class BudgetController extends Controller
      * DELETE
      * =====================================
      */
-    public function destroy(Budget $budget)
+    public function destroy($id)
     {
+        $budget = Budget::findOrFail($id);
+
         if ($budget->user_id === auth()->id()) {
+            // Reverse the budget allocation
+            Transaction::create([
+                'user_id' => auth()->id(),
+                'category_id' => $budget->category_id,
+                'type' => 'expense',
+                'amount' => -$budget->amount, // Negative amount to subtract
+                'transaction_date' => now(),
+                'description' => 'Hapus Budget: ' . ($budget->category->name ?? 'Kategori'),
+            ]);
+
             $budget->delete();
         }
 

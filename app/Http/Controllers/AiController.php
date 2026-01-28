@@ -80,8 +80,11 @@ class AiController extends Controller
         $userName = Auth::user()->name;
 
         // Ambil context keuangan
-        $totalIncome = Transaction::where('user_id', $userId)->where('type', 'income')->whereMonth('transaction_date', now()->month)->sum('amount');
-        $totalExpense = Transaction::where('user_id', $userId)->where('type', 'expense')->whereMonth('transaction_date', now()->month)->sum('amount');
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
+
+        $totalIncome = Transaction::where('user_id', $userId)->where('type', 'income')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
+        $totalExpense = Transaction::where('user_id', $userId)->where('type', 'expense')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
         $balance = $totalIncome - $totalExpense;
 
         // Get recent transactions
@@ -100,13 +103,108 @@ class AiController extends Controller
                 ];
             });
 
+        // Get budget data with spending info
+        $budgets = \App\Models\Budget::where('user_id', $userId)
+            ->where('end_date', '>=', now())
+            ->with('category')
+            ->get()
+            ->map(function ($budget) use ($userId, $startOfMonth, $endOfMonth) {
+                $spent = Transaction::where('user_id', $userId)
+                    ->where('category_id', $budget->category_id)
+                    ->where('type', 'expense')
+                    ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+                    ->sum('amount');
+
+                $percentage = $budget->amount > 0 ? round(($spent / $budget->amount) * 100) : 0;
+                $status = $spent > $budget->amount ? 'OVER BUDGET!' : ($percentage >= 80 ? 'Hampir habis' : 'Aman');
+
+                return [
+                    'kategori' => $budget->category->name ?? 'Unknown',
+                    'limit' => 'Rp' . number_format($budget->amount, 0, ',', '.'),
+                    'terpakai' => 'Rp' . number_format($spent, 0, ',', '.'),
+                    'sisa' => 'Rp' . number_format(max(0, $budget->amount - $spent), 0, ',', '.'),
+                    'persentase' => $percentage . '%',
+                    'status' => $status,
+                ];
+            });
+
+        // Get top expense category for context
+        $topExpenseCategory = Transaction::where('transactions.user_id', $userId)
+            ->where('transactions.type', 'expense')
+            ->whereBetween('transactions.transaction_date', [$startOfMonth, $endOfMonth])
+            ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
+            ->selectRaw("COALESCE(categories.name, 'Tanpa Kategori') as category_name, SUM(transactions.amount) as total_amount")
+            ->groupByRaw("COALESCE(categories.name, 'Tanpa Kategori')")
+            ->orderByDesc('total_amount')
+            ->first();
+
+        // ---------------------------------------------------------
+        // ANOMALY DETECTION (Disamakan dengan getInsight)
+        // ---------------------------------------------------------
+        $anomalies = collect();
+
+        // 1. Detect unusually large transactions (> 2x average)
+        $avgTransaction = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->avg('amount') ?? 0;
+
+        $largeTransactions = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+            ->where('amount', '>', $avgTransaction * 2)
+            ->with('category')
+            ->get();
+
+        foreach ($largeTransactions as $t) {
+            $anomalies->push("🔴 Transaksi besar: {$t->description} sebesar Rp" . number_format($t->amount, 0, ',', '.') .
+                " (" . ($t->category->name ?? 'Tanpa Kategori') . ")");
+        }
+
+        // 2. Detect category spending spikes vs last month
+        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
+        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
+
+        $thisMonthByCategory = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+            ->selectRaw('category_id, SUM(amount) as total')
+            ->groupBy('category_id')
+            ->pluck('total', 'category_id');
+
+        $lastMonthByCategory = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->whereBetween('transaction_date', [$lastMonthStart, $lastMonthEnd])
+            ->selectRaw('category_id, SUM(amount) as total')
+            ->groupBy('category_id')
+            ->pluck('total', 'category_id');
+
+        foreach ($thisMonthByCategory as $catId => $thisMonthTotal) {
+            $lastMonthTotal = $lastMonthByCategory[$catId] ?? 0;
+            if ($lastMonthTotal > 0 && $thisMonthTotal > $lastMonthTotal * 1.5) {
+                $category = \App\Models\Category::find($catId);
+                $increase = round((($thisMonthTotal - $lastMonthTotal) / $lastMonthTotal) * 100);
+                $categoryName = $category->name ?? 'Unknown';
+                $anomalies->push("📈 Kategori {$categoryName} melonjak {$increase}% dibanding bulan lalu");
+            }
+        }
+
+        $anomalyText = "";
+        if ($anomalies->count() > 0) {
+            $anomalyText = "\n- ANOMALI TERDETEKSI:\n" . $anomalies->take(5)->join("\n");
+        }
+        // ---------------------------------------------------------
+
         $prompt = "Kamu adalah 'G-ment', asisten keuangan pribadi yang ramah, gaul, dan solutif. Gunakan Bahasa Indonesia yang santai tapi profesional.\n\n" .
             "Data User:\n" .
             "- Nama: {$userName}\n" .
             "- Pemasukan bulan ini: Rp" . number_format($totalIncome, 0, ',', '.') . "\n" .
             "- Pengeluaran bulan ini: Rp" . number_format($totalExpense, 0, ',', '.') . "\n" .
-            "- Saldo saat ini: Rp" . number_format($balance, 0, ',', '.') . "\n" .
+            "- Kategori Terboros: " . ($topExpenseCategory->category_name ?? 'N/A') . " (Rp" . number_format($topExpenseCategory->total_amount ?? 0, 0, ',', '.') . ")\n" .
+            "- Saldo saat ini: Rp" . number_format($balance, 0, ',', '.') . "\n\n" .
+            "- Budget yang diset user:\n" . json_encode($budgets, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n" .
+            $anomalyText . "\n\n" .
             "- 10 Transaksi terakhir: " . json_encode($recentTransactions, JSON_UNESCAPED_UNICODE) . "\n\n" .
+            "PENTING: Jika ada budget dengan status 'OVER BUDGET!' atau 'Hampir habis', beri peringatan kepada user!\n\n" .
             "User bertanya: " . $userMessage;
 
         try {
@@ -136,16 +234,42 @@ class AiController extends Controller
         $endOfMonth = Carbon::now()->endOfMonth();
 
         $totalIncome = Transaction::where('user_id', $userId)->where('type', 'income')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
+
+        $totalIncome = Transaction::where('user_id', $userId)->where('type', 'income')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
         $totalExpense = Transaction::where('user_id', $userId)->where('type', 'expense')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
 
-        $topExpenseCategory = Transaction::where('user_id', $userId)
-            ->where('type', 'expense')
-            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+        $topExpenseCategory = Transaction::where('transactions.user_id', $userId)
+            ->where('transactions.type', 'expense')
+            ->whereBetween('transactions.transaction_date', [$startOfMonth, $endOfMonth])
             ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
             ->selectRaw("COALESCE(categories.name, 'Tanpa Kategori') as category_name, SUM(transactions.amount) as total_amount")
             ->groupByRaw("COALESCE(categories.name, 'Tanpa Kategori')")
             ->orderByDesc('total_amount')
             ->first();
+
+        // Get budget data with spending info
+        $budgets = \App\Models\Budget::where('user_id', $userId)
+            ->where('end_date', '>=', now())
+            ->with('category')
+            ->get()
+            ->map(function ($budget) use ($userId, $startOfMonth, $endOfMonth) {
+                $spent = Transaction::where('user_id', $userId)
+                    ->where('category_id', $budget->category_id)
+                    ->where('type', 'expense')
+                    ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+                    ->sum('amount');
+
+                return [
+                    'category' => $budget->category->name ?? 'Unknown',
+                    'limit' => $budget->amount,
+                    'spent' => $spent,
+                    'percentage' => $budget->amount > 0 ? round(($spent / $budget->amount) * 100) : 0,
+                    'over_budget' => $spent > $budget->amount,
+                    'over_amount' => max(0, $spent - $budget->amount),
+                ];
+            });
+
+        $overBudgets = $budgets->filter(fn($b) => $b['over_budget']);
 
         $data = [
             "total_income" => number_format($totalIncome, 0, ',', '.'),
@@ -154,21 +278,139 @@ class AiController extends Controller
             "top_amount" => number_format($topExpenseCategory->total_amount ?? 0, 0, ',', '.'),
         ];
 
-        $prompt = "Berikan 3 poin insight singkat (bullet point) dalam Bahasa Indonesia untuk data keuangan ini: 
-                   Pemasukan: Rp{$data['total_income']}, Pengeluaran: Rp{$data['total_expense']}, 
-                   Kategori Terboros: {$data['top_category']} (Rp{$data['top_amount']}). 
-                   Fokus pada saran tindakan. Tanpa pembukaan/penutupan.";
+        // Build budget warning text
+        $budgetWarning = '';
+        if ($overBudgets->count() > 0) {
+            $warnings = $overBudgets->map(function ($b) {
+                return "{$b['category']} (limit Rp" . number_format($b['limit'], 0, ',', '.') .
+                    ", terpakai Rp" . number_format($b['spent'], 0, ',', '.') .
+                    ", OVER Rp" . number_format($b['over_amount'], 0, ',', '.') . ")";
+            })->join(', ');
+            $budgetWarning = "\n⚠️ PERINGATAN BUDGET TERLAMPAUI: {$warnings}";
+        }
+
+        // ANOMALY DETECTION
+        $anomalies = collect();
+
+        // 1. Detect unusually large transactions (> 2x average)
+        $avgTransaction = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->avg('amount') ?? 0;
+
+        $largeTransactions = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+            ->where('amount', '>', $avgTransaction * 2)
+            ->with('category')
+            ->get();
+
+        foreach ($largeTransactions as $t) {
+            $anomalies->push("🔴 Transaksi besar: {$t->description} sebesar Rp" . number_format($t->amount, 0, ',', '.') .
+                " (" . ($t->category->name ?? 'Tanpa Kategori') . ") - " .
+                round($t->amount / max($avgTransaction, 1), 1) . "x dari rata-rata");
+        }
+
+        // 2. Detect category spending spikes vs last month
+        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
+        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
+
+        $thisMonthByCategory = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->where('description', 'NOT LIKE', '%Budget%')
+            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+            ->selectRaw('category_id, SUM(amount) as total')
+            ->groupBy('category_id')
+            ->pluck('total', 'category_id');
+
+        $lastMonthByCategory = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->where('description', 'NOT LIKE', '%Budget%')
+            ->whereBetween('transaction_date', [$lastMonthStart, $lastMonthEnd])
+            ->selectRaw('category_id, SUM(amount) as total')
+            ->groupBy('category_id')
+            ->pluck('total', 'category_id');
+
+        foreach ($thisMonthByCategory as $catId => $thisMonthTotal) {
+            $lastMonthTotal = $lastMonthByCategory[$catId] ?? 0;
+            if ($lastMonthTotal > 0 && $thisMonthTotal > $lastMonthTotal * 1.5) {
+                $category = \App\Models\Category::find($catId);
+                $increase = round((($thisMonthTotal - $lastMonthTotal) / $lastMonthTotal) * 100);
+                $categoryName = $category->name ?? 'Unknown';
+                $anomalies->push("📈 Kategori {$categoryName} melonjak {$increase}% dibanding bulan lalu");
+            }
+        }
+
+        // Build anomaly warning text
+        $anomalyWarning = '';
+        if ($anomalies->count() > 0) {
+            $anomalyWarning = "\n🚨 ANOMALI TERDETEKSI:\n" . $anomalies->take(3)->join("\n");
+        }
+
+        $prompt = "Berikan 3 poin insight SANGAT SINGKAT (maksimal 15 kata per poin) dengan gaya 'Warning' yang tegas.
+                   Data: 
+                   - Pemasukan: Rp{$data['total_income']}
+                   - Pengeluaran: Rp{$data['total_expense']}
+                   - Kategori Terboros: {$data['top_category']} (Rp{$data['top_amount']})
+                   {$budgetWarning}
+                   {$anomalyWarning}
+                   
+                   Format Output WAJIB (Gunakan Emoji):
+                   ⚠️ [Peringatan Budget/Anomali Paling Kritis]
+                   💡 [Saran Penghematan Spesifik]
+                   📈 [Status Keuangan Singkat]
+                   
+                   CONTOH OUTPUT YANG DIINGINKAN:
+                   ⚠️ Budget Hiburan OVER 102%! Stop jajan kopi sekarang.
+                   💡 Masak sendiri bisa hemat Rp500rb minggu depan.
+                   📈 Cashflow positif, tapi boros di gaya hidup.
+                   
+                   PENTING: JANGAN BERTELE-TELE. LANGSUNG KE POIN PENYAKIT KEUANGANNYA.";
 
         try {
             $insight = $this->callGemini($prompt);
 
-            return response()->json([
-                'success' => true,
-                'insight' => $insight ?? 'Tetap semangat kelola keuanganmu!',
-            ]);
+            if ($insight) {
+                return response()->json([
+                    'success' => true,
+                    'insight' => $insight,
+                ]);
+            }
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            // Log error but continue to fallback
+            \Log::warning('Gemini API failed for insight: ' . $e->getMessage());
         }
+
+        // Fallback: Generate local insight if AI fails
+        $fallbackInsight = [];
+
+        // Budget warnings
+        if ($overBudgets->count() > 0) {
+            foreach ($overBudgets->take(2) as $b) {
+                $fallbackInsight[] = "⚠️ Budget " . $b['category'] . " terlampaui! (Rp" . number_format($b['over_amount'], 0, ',', '.') . " over)";
+            }
+        }
+
+        // Anomaly warnings
+        if ($anomalies->count() > 0) {
+            foreach ($anomalies->take(2) as $anomaly) {
+                $fallbackInsight[] = $anomaly;
+            }
+        }
+
+        // General stats
+        if ($totalExpense > $totalIncome) {
+            $fallbackInsight[] = "📊 Pengeluaran (Rp" . number_format($totalExpense, 0, ',', '.') . ") melebihi pemasukan. Kurangi belanja non-esensial!";
+        } else {
+            $savings = $totalIncome - $totalExpense;
+            $fallbackInsight[] = "✨ Kamu sudah menabung Rp" . number_format($savings, 0, ',', '.') . " bulan ini. Pertahankan!";
+        }
+
+        return response()->json([
+            'success' => true,
+            'insight' => count($fallbackInsight) > 0
+                ? implode("\n", $fallbackInsight)
+                : 'Tetap semangat kelola keuanganmu! 💪',
+        ]);
     }
 
     /**
