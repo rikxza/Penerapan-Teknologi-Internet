@@ -205,9 +205,12 @@
                                     </svg>
                                 </span>
                                 <input type="email" name="email" value="{{ old('email') }}" placeholder="Email Address"
-                                    class="w-full bg-white/50 dark:bg-white/10 border border-emerald-200/50 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
+                                    class="w-full bg-white/50 dark:bg-white/10 border @error('email') border-red-500 @else border-emerald-200/50 dark:border-white/10 @enderror rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
                                     required autofocus>
                             </div>
+                            @error('email')
+                                <p class="text-red-500 text-xs pl-4 mt-1">{{ $message }}</p>
+                            @enderror
 
                             <button type="submit"
                                 class="w-full money-gradient text-white font-black py-4 rounded-2xl text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">

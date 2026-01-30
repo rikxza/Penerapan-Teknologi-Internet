@@ -18,16 +18,40 @@ class TransactionController extends Controller
     {
         $user = Auth::user();
 
-        // Get selected period from request or use current month
+        // 1. FILTER: DATE RANGE & PERIOD
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
         $period = $request->input('period');
-        if ($period && preg_match('/^(\d{4})-(\d{2})$/', $period, $matches)) {
+
+        // Defaults
+        $selectedMonth = Carbon::now()->month;
+        $selectedYear = Carbon::now()->year;
+
+        // Logic: Date Range takes precedence over Period
+        if ($startDate && $endDate) {
+            // Using custom date range
+            $filterDate = Carbon::parse($startDate); // Just for view compatibility if needed
+        } elseif ($period && preg_match('/^(\d{4})-(\d{2})$/', $period, $matches)) {
+            // Using Monthly Period
             $selectedYear = (int) $matches[1];
             $selectedMonth = (int) $matches[2];
+            $filterDate = Carbon::createFromDate($selectedYear, $selectedMonth, 1);
+
+            // Set start and end for query
+            $startDate = Carbon::createFromDate($selectedYear, $selectedMonth, 1)->startOfMonth()->format('Y-m-d');
+            $endDate = Carbon::createFromDate($selectedYear, $selectedMonth, 1)->endOfMonth()->format('Y-m-d');
         } else {
-            $selectedMonth = Carbon::now()->month;
-            $selectedYear = Carbon::now()->year;
+            // Default: Current Month
+            $filterDate = Carbon::createFromDate($selectedYear, $selectedMonth, 1);
+            $startDate = Carbon::now()->startOfMonth()->format('Y-m-d');
+            $endDate = Carbon::now()->endOfMonth()->format('Y-m-d');
         }
-        $filterDate = Carbon::createFromDate($selectedYear, $selectedMonth, 1);
+
+        // 2. SORTING
+        $sortDir = $request->input('sort_dir', 'desc'); // Default latest first
+        if (!in_array(strtolower($sortDir), ['asc', 'desc'])) {
+            $sortDir = 'desc';
+        }
 
         // Ambil kategori milik user atau kategori default (null)
         $categories = Category::where(function ($query) use ($user) {
@@ -37,38 +61,44 @@ class TransactionController extends Controller
             ->get()
             ->groupBy('type');
 
-        // Ambil transaksi user (pagination 10 data) - filtered by selected month
-        // Diurutkan berdasarkan transaction_date DESC agar yang baru (berdasarkan jam) di atas
-        $transactions = Transaction::where('user_id', $user->id)
-            ->whereMonth('transaction_date', $selectedMonth)
-            ->whereYear('transaction_date', $selectedYear)
-            ->with('category')
-            ->orderBy('transaction_date', 'desc')
+        // QUERY TRANSACTIONS
+        $query = Transaction::where('user_id', $user->id)
+            ->with('category');
+
+        // Apply Date Filter
+        if ($startDate && $endDate) {
+            $query->whereBetween('transaction_date', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59'
+            ]);
+        }
+
+        // Apply Sorting
+        $transactions = $query->orderBy('transaction_date', $sortDir)
             ->paginate(10)
-            ->appends(['period' => sprintf('%d-%02d', $selectedYear, $selectedMonth)]);
+            ->appends([
+                'period' => $period,
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'sort_dir' => $sortDir
+            ]);
 
-        // Statistik singkat
-        $totalTransactions = Transaction::where('user_id', $user->id)->count();
+        // STATS CALCULATION (Respecting the same filter)
+        $statsQuery = Transaction::where('user_id', $user->id);
+        if ($startDate && $endDate) {
+            $statsQuery->whereBetween('transaction_date', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59'
+            ]);
+        }
 
-        // Monthly stats for statistics bar (filtered by selected month)
-        $monthlyIncome = Transaction::where('user_id', $user->id)
-            ->where('type', 'income')
-            ->whereMonth('transaction_date', $selectedMonth)
-            ->whereYear('transaction_date', $selectedYear)
-            ->sum('amount');
+        // Clone query for efficiency
+        $monthlyIncome = (clone $statsQuery)->where('type', 'income')->sum('amount');
+        $monthlyExpense = (clone $statsQuery)->where('type', 'expense')->sum('amount');
+        $monthlyTransactionCount = (clone $statsQuery)->count();
+        $totalTransactions = Transaction::where('user_id', $user->id)->count(); // All time count
 
-        $monthlyExpense = Transaction::where('user_id', $user->id)
-            ->where('type', 'expense')
-            ->whereMonth('transaction_date', $selectedMonth)
-            ->whereYear('transaction_date', $selectedYear)
-            ->sum('amount');
-
-        $monthlyTransactionCount = Transaction::where('user_id', $user->id)
-            ->whereMonth('transaction_date', $selectedMonth)
-            ->whereYear('transaction_date', $selectedYear)
-            ->count();
-
-        // Budget aktif (yang belum expired)
+        // Active active budgets
         $activeBudgets = Budget::where('user_id', $user->id)
             ->where('end_date', '>=', now())
             ->count();
@@ -96,6 +126,11 @@ class TransactionController extends Controller
             'selectedYear' => $selectedYear,
             'filterDate' => $filterDate,
             'availableMonths' => $availableMonths,
+            // Pass back new filter vars
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'sortDir' => $sortDir,
+            'isCustomFilter' => $request->has('start_date') // Flag to show we are in custom filter mode
         ]);
     }
 
@@ -111,6 +146,7 @@ class TransactionController extends Controller
             'category_id' => ['required', 'exists:categories,id'],
             'transaction_date' => ['required', 'date', 'before_or_equal:today'],
             'description' => ['required', 'string', 'min:3', 'max:255'],
+            'receipt_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
         // 2. Olah data setelah validasi sukses
@@ -122,8 +158,42 @@ class TransactionController extends Controller
         $validated['transaction_date'] = Carbon::parse($request->transaction_date)
             ->setTimeFrom(now());
 
+        if ($request->hasFile('receipt_image')) {
+            $path = $request->file('receipt_image')->store('receipts', 'public');
+            $validated['receipt_image'] = $path;
+        }
+
         // 3. Eksekusi simpan ke database
         Transaction::create($validated);
+
+        // CHECK BUDGET ALERT (Fitur Notification System)
+        if ($validated['type'] === 'expense') {
+            $budget = Budget::where('user_id', Auth::id())
+                ->where('category_id', $validated['category_id'])
+                ->where('end_date', '>=', now())
+                ->first();
+
+            if ($budget) {
+                // Re-calculate spent for this month (or budget period)
+                // Assuming budget is monthly based on Dashboard logic
+                $startOfMonth = Carbon::now()->startOfMonth();
+                $endOfMonth = Carbon::now()->endOfMonth();
+
+                $spent = Transaction::where('user_id', Auth::id())
+                    ->where('category_id', $budget->category_id)
+                    ->where('type', 'expense')
+                    ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+                    ->sum('amount');
+
+                $percentage = ($spent / $budget->amount) * 100;
+
+                if ($percentage >= 100) {
+                    Auth::user()->notify(new \App\Notifications\BudgetAlertNotification("Budget {$budget->category->name} sudah tembus " . round($percentage) . "%!", 'danger'));
+                } elseif ($percentage >= 80) {
+                    Auth::user()->notify(new \App\Notifications\BudgetAlertNotification("Budget {$budget->category->name} sudah mencapai " . round($percentage) . "%!", 'warning'));
+                }
+            }
+        }
 
         // 4. Response dengan format mata uang user
         $formattedAmount = Auth::user()->formatCurrency($validated['amount']);
@@ -152,12 +222,21 @@ class TransactionController extends Controller
             'category_id' => ['required', 'exists:categories,id'],
             'transaction_date' => ['required', 'date', 'before_or_equal:today'],
             'description' => ['required', 'string', 'min:3', 'max:255'],
+            'receipt_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
         // Tetap pertahankan jam lama atau update ke jam sekarang jika tanggal berubah
         // Di sini kita update jamnya mengikuti waktu edit jika ingin presisi
         $validated['transaction_date'] = Carbon::parse($request->transaction_date)
             ->setTimeFrom(now());
+
+        if ($request->hasFile('receipt_image')) {
+            if ($transaction->receipt_image) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($transaction->receipt_image);
+            }
+            $path = $request->file('receipt_image')->store('receipts', 'public');
+            $validated['receipt_image'] = $path;
+        }
 
         $transaction->update($validated);
 
@@ -170,6 +249,9 @@ class TransactionController extends Controller
     public function destroy(Transaction $transaction)
     {
         if ($transaction->user_id === Auth::id()) {
+            if ($transaction->receipt_image) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($transaction->receipt_image);
+            }
             $transaction->delete();
         }
 
@@ -182,7 +264,14 @@ class TransactionController extends Controller
     public function deleteAll()
     {
         $user = Auth::user();
-        Transaction::where('user_id', $user->id)->delete();
+        $transactions = Transaction::where('user_id', $user->id)->get();
+
+        foreach ($transactions as $t) {
+            if ($t->receipt_image) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($t->receipt_image);
+            }
+            $t->delete();
+        }
 
         return redirect()
             ->back()

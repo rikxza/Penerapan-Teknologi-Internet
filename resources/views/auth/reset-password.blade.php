@@ -188,9 +188,12 @@
                                 </span>
                                 <input type="email" name="email" value="{{ old('email', $request->email) }}"
                                     placeholder="Email Address"
-                                    class="w-full bg-white/50 dark:bg-white/10 border border-emerald-200/50 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
+                                    class="w-full bg-white/50 dark:bg-white/10 border @error('email') border-red-500 @else border-emerald-200/50 dark:border-white/10 @enderror rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
                                     required autofocus>
                             </div>
+                            @error('email')
+                                <p class="text-red-500 text-xs pl-4 mt-1">{{ $message }}</p>
+                            @enderror
 
                             <div class="relative">
                                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">
@@ -200,9 +203,12 @@
                                     </svg>
                                 </span>
                                 <input type="password" name="password" placeholder="New Password"
-                                    class="w-full bg-white/50 dark:bg-white/10 border border-emerald-200/50 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
+                                    class="w-full bg-white/50 dark:bg-white/10 border @error('password') border-red-500 @else border-emerald-200/50 dark:border-white/10 @enderror rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
                                     required>
                             </div>
+                            @error('password')
+                                <p class="text-red-500 text-xs pl-4 mt-1">{{ $message }}</p>
+                            @enderror
 
                             <div class="relative">
                                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">

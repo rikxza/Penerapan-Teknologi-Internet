@@ -17,6 +17,7 @@ class Transaction extends Model
         'type', // 'income' or 'expense'
         'description',
         'transaction_date',
+        'receipt_image',
     ];
 
     protected $casts = [

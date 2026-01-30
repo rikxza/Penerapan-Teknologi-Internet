@@ -20,21 +20,94 @@
         </div>
 
         {{-- 2. STATISTICS BAR --}}
-        <div class="mx-4 md:mx-8 mb-6">
-            {{-- Month Filter Header --}}
+        <div class="mx-4 md:mx-8 mb-6" x-data="{ showFilters: {{ $isCustomFilter ? 'true' : 'false' }} }">
+            {{-- Month/Date Filter Header --}}
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Statistik Bulanan</h3>
-                <form method="GET" action="{{ route('transactions.index') }}" class="flex items-center gap-2">
-                    <select name="period" onchange="this.form.submit()"
-                        class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white text-sm font-medium rounded-xl px-4 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-transparent cursor-pointer">
-                        @foreach($availableMonths as $monthOption)
-                            <option
-                                value="{{ $monthOption['year'] }}-{{ str_pad($monthOption['month'], 2, '0', STR_PAD_LEFT) }}"
-                                {{ $selectedMonth == $monthOption['month'] && $selectedYear == $monthOption['year'] ? 'selected' : '' }}>
-                                {{ $monthOption['label'] }}
+                <div class="flex items-center gap-2">
+                    <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Statistik & Filter</h3>
+                    <button @click="showFilters = !showFilters"
+                        :class="showFilters ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-500'"
+                        class="p-1.5 rounded-lg transition-all" title="Toggle Filters">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                    </button>
+                    <!-- Active Filter Badge -->
+                    @if($isCustomFilter)
+                        <span
+                            class="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-600 font-bold border border-emerald-200">Custom
+                            Filter</span>
+                    @endif
+                </div>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    {{-- Quick Month Select (ALWAYS VISIBLE) --}}
+                    <form method="GET" action="{{ route('transactions.index') }}" class="flex items-center">
+                        <select name="period" onchange="this.form.submit()"
+                            class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white text-xs font-bold rounded-lg px-3 py-1.5 cursor-pointer focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                            <option value="">-- Custom --</option>
+                            @foreach($availableMonths as $monthOption)
+                                <option
+                                    value="{{ $monthOption['year'] }}-{{ str_pad($monthOption['month'], 2, '0', STR_PAD_LEFT) }}"
+                                    {{ !$isCustomFilter && $selectedMonth == $monthOption['month'] && $selectedYear == $monthOption['year'] ? 'selected' : '' }}>
+                                    {{ $monthOption['label'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+
+                    {{-- Export Buttons --}}
+                    <div class="flex gap-2">
+                        <a href="{{ route('report.export.csv', ['period' => sprintf('%d-%02d', $selectedYear, $selectedMonth)]) }}"
+                            class="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                            📊 CSV
+                        </a>
+                        <a href="{{ route('report.export.pdf', ['period' => sprintf('%d-%02d', $selectedYear, $selectedMonth)]) }}"
+                            class="bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                            📄 PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {{-- EXPANDABLE FILTER FORM (Advanced: Sort & Date Range) --}}
+            <div x-show="showFilters" x-transition
+                class="mb-6 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+                <form method="GET" action="{{ route('transactions.index') }}"
+                    class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+
+                    {{-- Sort --}}
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Urutkan</label>
+                        <select name="sort_dir"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white text-xs font-medium rounded-xl px-3 py-2 cursor-pointer">
+                            <option value="desc" {{ $sortDir == 'desc' ? 'selected' : '' }}>Terbaru ke Terlama (DESC)
                             </option>
-                        @endforeach
-                    </select>
+                            <option value="asc" {{ $sortDir == 'asc' ? 'selected' : '' }}>Terlama ke Terbaru (ASC)
+                            </option>
+                        </select>
+                    </div>
+
+                    {{-- Start Date --}}
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Dari Tanggal</label>
+                        <input type="date" name="start_date" value="{{ $startDate }}"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white text-xs font-medium rounded-xl px-3 py-2">
+                    </div>
+
+                    {{-- End Date --}}
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sampai Tanggal</label>
+                        <div class="flex gap-2">
+                            <input type="date" name="end_date" value="{{ $endDate }}"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white text-xs font-medium rounded-xl px-3 py-2">
+                            <button type="submit"
+                                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors">
+                                Filter
+                            </button>
+                        </div>
+                    </div>
                 </form>
             </div>
 
@@ -52,7 +125,8 @@
                     <div>
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Transaksi</p>
                         <p class="text-xl font-black text-slate-900 dark:text-white">{{ $monthlyTransactionCount }}
-                            <span class="text-sm font-medium text-slate-400">/ bulan ini</span></p>
+                            <span class="text-sm font-medium text-slate-400">/ bulan ini</span>
+                        </p>
                     </div>
                 </div>
 
@@ -70,7 +144,8 @@
                             class="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
                             Pemasukan</p>
                         <p class="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                            {{ Auth::user()->formatCurrency($monthlyIncome) }}</p>
+                            {{ Auth::user()->formatCurrency($monthlyIncome) }}
+                        </p>
                     </div>
                 </div>
 
@@ -87,7 +162,8 @@
                         <p class="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest">
                             Pengeluaran</p>
                         <p class="text-xl font-black text-rose-600 dark:text-rose-400">
-                            {{ Auth::user()->formatCurrency($monthlyExpense) }}</p>
+                            {{ Auth::user()->formatCurrency($monthlyExpense) }}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -130,7 +206,7 @@
                             <div class="flex items-center gap-4">
                                 <div
                                     class="w-11 h-11 rounded-xl flex items-center justify-center text-lg shadow-inner shrink-0
-                                        {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' }}">
+                                                                {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                             d="{{ $transaction->type == 'income' ? 'M7 11l5-5m0 0l5 5m-5-5v12' : 'M17 13l-5 5m0 0l-5-5m5 5V6' }}" />
@@ -140,11 +216,21 @@
                                     <p
                                         class="text-sm font-bold text-slate-800 dark:text-white group-hover:text-emerald-500 transition-colors truncate">
                                         {{ $transaction->description ?: ($transaction->category->name ?? 'Transaction') }}
+                                        @if($transaction->receipt_image)
+                                            <a href="{{ asset('storage/' . $transaction->receipt_image) }}" target="_blank"
+                                                class="inline-flex items-center ml-1 text-emerald-500 hover:text-emerald-600"
+                                                title="Lihat Bukti Foto" @click.stop>
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                                </svg>
+                                            </a>
+                                        @endif
                                     </p>
                                     <div class="flex items-center gap-2 mt-0.5">
                                         <span
                                             class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full 
-                                                {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600' }}">
+                                                                        {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600' }}">
                                             {{ $transaction->category->name ?? 'Uncategorized' }}
                                         </span>
                                         <span
@@ -216,7 +302,8 @@
                         <h3 class="text-lg font-black text-slate-900 dark:text-white">Tambah Transaksi</h3>
                     </div>
 
-                    <form method="post" action="{{ route('transactions.store') }}" class="space-y-4">
+                    <form method="post" action="{{ route('transactions.store') }}" enctype="multipart/form-data"
+                        class="space-y-4">
                         @csrf
 
                         {{-- Type --}}
@@ -275,6 +362,17 @@
                             @enderror
                         </div>
 
+                        {{-- Receipt --}}
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bukti
+                                Foto (Opsional)</label>
+                            <input type="file" name="receipt_image" accept="image/*"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-2 text-sm focus:ring-2 focus:ring-emerald-500 transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-500/10 file:text-emerald-700 dark:file:text-emerald-400 hover:file:bg-emerald-100">
+                            @error('receipt_image')
+                                <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         {{-- Submit Button --}}
                         <button type="submit"
                             class="w-full mt-2 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-xl hover:shadow-emerald-500/40 active:scale-[0.98]">
@@ -287,7 +385,7 @@
                             </span>
                         </button>
                     </form>
+                </div>
             </div>
         </div>
-    </div>
 </x-app-layout>

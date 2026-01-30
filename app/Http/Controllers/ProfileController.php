@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
-use App\Models\Transaction; 
-use App\Models\Budget;      
+use App\Models\Transaction;
+use App\Models\Budget;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,17 +23,17 @@ class ProfileController extends Controller
 
         // Hitung Pemasukan (Income)
         $totalIncome = Transaction::where('user_id', $user->id)
-                        ->where('type', 'income') // Pastikan di database lo nama kolomnya 'type' dan isinya 'income'
-                        ->count();
+            ->where('type', 'income') // Pastikan di database lo nama kolomnya 'type' dan isinya 'income'
+            ->count();
 
         // Hitung Pengeluaran (Expense)
         $totalExpense = Transaction::where('user_id', $user->id)
-                        ->where('type', 'expense')
-                        ->count();
+            ->where('type', 'expense')
+            ->count();
 
         $activeBudgets = Budget::where('user_id', $user->id)
-                                ->where('end_date', '>=', now())
-                                ->count();
+            ->where('end_date', '>=', now())
+            ->count();
 
         $activeDays = Carbon::parse($user->created_at)->diffInDays(now());
 
@@ -49,7 +49,7 @@ class ProfileController extends Controller
 
         // 1. Update Nama
         $user->name = $request->input('name');
-        
+
         // 2. Update Avatar Logic
         $user->avatar_type = $request->input('avatar_type');
         if ($request->hasFile('avatar')) {
@@ -84,5 +84,29 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    /**
+     * Export User Data (Backup)
+     */
+    public function exportData(Request $request)
+    {
+        $user = $request->user();
+
+        // Load relationships
+        $user->load(['transactions', 'budgets']);
+
+        $data = [
+            'user' => $user->makeHidden(['password', 'remember_token']),
+            'categories' => \App\Models\Category::where('user_id', $user->id)->orWhereNull('user_id')->get(),
+            'budgets' => $user->budgets,
+            'transactions' => $user->transactions,
+        ];
+
+        $filename = 'moneygement_backup_' . Carbon::now()->format('Y-m-d_His') . '.json';
+
+        return response()->streamDownload(function () use ($data) {
+            echo json_encode($data, JSON_PRETTY_PRINT);
+        }, $filename);
     }
 }

@@ -465,10 +465,52 @@ Jika ada informasi yang tidak terbaca, beri nilai null. Total amount harus berup
             // Get expense categories
             $categories = Category::where('type', 'expense')->get(['id', 'name']);
 
+            // UC-06: Auto-classify - Suggest category based on merchant name and items
+            $suggestedCategoryId = null;
+            $merchantName = strtolower($receiptData['merchant_name'] ?? '');
+            $items = collect($receiptData['items'] ?? [])->pluck('name')->implode(' ');
+            $searchText = strtolower($merchantName . ' ' . $items);
+
+            // Category mapping based on keywords
+            $categoryMappings = [
+                'Makanan' => ['resto', 'restaurant', 'cafe', 'coffee', 'kopi', 'makan', 'food', 'warung', 'warteg', 'bakso', 'mie', 'nasi', 'ayam', 'pizza', 'burger', 'kfc', 'mcd', 'starbucks', 'dunkin', 'janji jiwa', 'kopi kenangan', 'gofood', 'grabfood'],
+                'Transportasi' => ['grab', 'gojek', 'uber', 'taxi', 'taksi', 'bensin', 'pertamina', 'shell', 'spbu', 'parkir', 'tol', 'transjakarta', 'mrt', 'lrt', 'kereta', 'train', 'bus', 'angkot'],
+                'Belanja' => ['indomaret', 'alfamart', 'supermarket', 'hypermart', 'carrefour', 'giant', 'lottemart', 'tokopedia', 'shopee', 'lazada', 'bukalapak', 'blibli', 'marketplace'],
+                'Tagihan' => ['pln', 'listrik', 'pdam', 'air', 'telkom', 'indihome', 'wifi', 'internet', 'pulsa', 'token', 'bpjs', 'asuransi'],
+                'Hiburan' => ['cinema', 'bioskop', 'xxi', 'cgv', 'cinemaxx', 'netflix', 'spotify', 'youtube', 'game', 'steam', 'playstation', 'xbox', 'karaoke', 'happy puppy'],
+                'Kesehatan' => ['apotek', 'pharmacy', 'kimia farma', 'century', 'k24', 'dokter', 'klinik', 'rumah sakit', 'hospital', 'lab', 'halodoc', 'alodokter'],
+                'Pendidikan' => ['buku', 'book', 'gramedia', 'togamas', 'kursus', 'les', 'course', 'udemy', 'skill', 'belajar'],
+            ];
+
+            foreach ($categoryMappings as $categoryName => $keywords) {
+                foreach ($keywords as $keyword) {
+                    if (str_contains($searchText, $keyword)) {
+                        // Find matching category
+                        $matchedCategory = $categories->first(function ($cat) use ($categoryName) {
+                            return str_contains(strtolower($cat->name), strtolower($categoryName));
+                        });
+                        if ($matchedCategory) {
+                            $suggestedCategoryId = $matchedCategory->id;
+                            break 2;
+                        }
+                    }
+                }
+            }
+
+            // Fallback to first category if no match found
+            if (!$suggestedCategoryId && $categories->count() > 0) {
+                // Try to find "Lain-lain" or similar
+                $fallbackCategory = $categories->first(function ($cat) {
+                    return str_contains(strtolower($cat->name), 'lain');
+                }) ?? $categories->first();
+                $suggestedCategoryId = $fallbackCategory->id;
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $receiptData,
                 'categories' => $categories,
+                'suggested_category_id' => $suggestedCategoryId,
             ]);
 
         } catch (\Exception $e) {
@@ -512,5 +554,50 @@ Jika ada informasi yang tidak terbaca, beri nilai null. Total amount harus berup
             'message' => 'Transaksi berhasil disimpan!',
             'transaction' => $transaction,
         ]);
+    }
+
+    /**
+     * Fitur 5: Financial Forecasting
+     */
+    public function getForecast()
+    {
+        $userId = Auth::id();
+
+        // Gather last 3 months data
+        $last3Months = Transaction::where('user_id', $userId)
+            ->where('type', 'expense')
+            ->where('transaction_date', '>=', Carbon::now()->subMonths(3))
+            ->orderBy('transaction_date', 'asc')
+            ->get()
+            ->groupBy(function ($date) {
+                return Carbon::parse($date->transaction_date)->format('F Y');
+            })
+            ->map(function ($row) {
+                return $row->sum('amount');
+            });
+
+        $prompt = "Kamu adalah analis keuangan. Prediksi total pengeluaran bulan depan berdasarkan riwayat 3 bulan terakhir user ini:
+" . json_encode($last3Months) . "
+
+Jawab dalam format JSON saja:
+{
+  \"predicted_amount\": 1500000,
+  \"analysis\": \"Satu kalimat singkat analisis tren.\",
+  \"suggestion\": \"Satu kalimat saran.\"
+}
+Jika data kosong, berikan estimasi 0.";
+
+        try {
+            $response = $this->callGemini($prompt);
+            $jsonContent = preg_replace('/```json\s*|\s*```/', '', $response);
+            $data = json_decode($jsonContent, true);
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }

@@ -218,6 +218,22 @@
                     </div>
                 </div>
 
+                {{-- SECTION: EXPORT DATA (BACKUP) --}}
+                <div class="space-y-4">
+                    <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Backup Data</h3>
+                    <div class="bg-indigo-50 dark:bg-indigo-500/10 rounded-[2.5rem] p-8 border border-indigo-500/20 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div class="text-center md:text-left">
+                            <h3 class="text-xl font-black text-indigo-600 dark:text-indigo-400 mb-2">Simpan Data Kamu</h3>
+                            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">Unduh arsip lengkap transaksi dan budget dalam format JSON.</p>
+                        </div>
+                        <a href="{{ route('profile.export') }}" target="_blank"
+                                class="w-full md:w-auto px-8 py-4 bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-lg shadow-indigo-500/30 active:scale-95 flex items-center justify-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Export Data
+                        </a>
+                    </div>
+                </div>
+
                 {{-- DANGER ZONE --}}
                 <div class="bg-rose-500/5 dark:bg-rose-500/10 rounded-[2.5rem] p-8 border border-rose-500/20 text-center relative overflow-hidden group">
                     <div class="relative z-10">

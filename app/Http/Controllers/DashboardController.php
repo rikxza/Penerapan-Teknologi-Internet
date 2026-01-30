@@ -44,7 +44,12 @@ class DashboardController extends Controller
         $totalBudgetAllocation = $activeBudgets->sum('amount');
 
         // 5. TOTAL PENGELUARAN (semua expense untuk display)
-        $totalExpense = $totalRealExpense + $totalBudgetAllocation;
+        // FIX: Gunakan logic yang sama dengan TransactionController (Sum semua transaksi expense bulan ini)
+        $totalExpense = Transaction::where('user_id', $user->id)
+            ->where('type', 'expense')
+            ->whereMonth('transaction_date', $now->month)
+            ->whereYear('transaction_date', $now->year)
+            ->sum('amount');
 
         // 6. SALDO BERSIH
         $netSavings = $totalIncome - $totalExpense;

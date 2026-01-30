@@ -114,9 +114,17 @@ class BudgetController extends Controller
             ->where('start_date', $start->format('Y-m-d'))
             ->first();
 
+        /**
+         * FIX: CEGAH OVERWRITE / MERGE SILENT
+         * Jika budget sudah ada, tolak dan minta user pakai fitur Edit (CRUD Options)
+         */
+        if ($existingBudget) {
+            return redirect()->back()->with('error_budget', 'Budget untuk kategori ini sudah ada! Silakan gunakan opsi Edit (Ikon Pensil) atau Hapus pada kartu budget.');
+        }
+
         $newAmount = $validated['amount'];
-        $oldAmount = $existingBudget?->amount ?? 0;
-        $diff = $newAmount - $oldAmount;
+        // $oldAmount tidak lagi relevan di store karena selalu create baru
+        $diff = $newAmount; // Karena baru, diff adalah full amount
 
         /**
          * SIMPAN BUDGET
@@ -139,22 +147,20 @@ class BudgetController extends Controller
          * Logika: Jika budget baru (oldAmount == 0), deskripsi "Add Budget:"
          * Jika update (oldAmount > 0), deskripsi "Top Up / Pengurangan"
          */
-        if ($diff != 0) {
+        /**
+         * CATAT ALOKASI → TRANSACTION
+         * Karena ini create baru, deskripsi pasti "Alokasi Budget"
+         */
+        if ($newAmount > 0) {
             $categoryName = Category::find($categoryId)->name ?? 'Kategori';
-
-            if ($oldAmount == 0) {
-                $description = 'Alokasi Budget: ' . $categoryName;
-            } else {
-                $description = ($diff > 0 ? 'Top Up Budget: ' : 'Pengurangan Budget: ') . $categoryName;
-            }
 
             Transaction::create([
                 'user_id' => $user->id,
                 'category_id' => $categoryId,
                 'type' => 'expense',
-                'amount' => $diff,
+                'amount' => $newAmount,
                 'transaction_date' => now(),
-                'description' => $description,
+                'description' => 'Alokasi Budget: ' . $categoryName,
             ]);
         }
 
@@ -175,7 +181,7 @@ class BudgetController extends Controller
         }
 
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|min:1000',
         ]);
 
         $oldAmount = $budget->amount;

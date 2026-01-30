@@ -352,10 +352,66 @@
             </div>
 
             {{-- ============================================= --}}
-            {{-- ROW 4: BUDGET PROGRESS (Full Width) --}}
+            {{-- ROW 4: FORECAST (1) + BUDGET PROGRESS (2) --}}
             {{-- ============================================= --}}
+
+            {{-- Forecast Card --}}
+            <div class="glass-card bento-card rounded-[2rem] p-6 relative overflow-hidden"
+                x-data="{ forecast: null, loading: true }" x-init="setTimeout(() => {
+                        fetch('{{ route('ai.forecast') }}', { headers: { 'Accept': 'application/json' } })
+                        .then(r => r.json())
+                        .then(d => { forecast = d.data; loading = false })
+                        .catch(e => { loading = false })
+                    }, 1000)">
+
+                <div class="flex items-center gap-3 mb-4">
+                    <div
+                        class="w-10 h-10 bg-purple-100 dark:bg-purple-500/20 rounded-xl flex items-center justify-center text-xl shrink-0">
+                        🔮
+                    </div>
+                    <div>
+                        <p class="font-black text-slate-800 dark:text-white text-sm">AI Forecast</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Prediksi bulan depan</p>
+                    </div>
+                </div>
+
+                <template x-if="loading">
+                    <div class="animate-pulse space-y-3">
+                        <div class="h-8 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                        <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-full"></div>
+                    </div>
+                </template>
+
+                <template x-if="!loading && forecast">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estimasi Pengeluaran
+                        </p>
+                        <p class="text-2xl font-black text-slate-800 dark:text-white mt-1 mb-4"
+                            x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(forecast.predicted_amount)"></p>
+
+                        <div class="space-y-2">
+                            <div
+                                class="p-3 bg-purple-50 dark:bg-purple-500/10 rounded-xl border border-purple-100 dark:border-purple-500/20">
+                                <p class="text-xs font-medium text-purple-700 dark:text-purple-300"
+                                    x-text="forecast.analysis"></p>
+                            </div>
+                            <div
+                                class="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl border border-emerald-100 dark:border-emerald-500/20">
+                                <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300">💡 <span
+                                        x-text="forecast.suggestion"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="!loading && !forecast">
+                    <div class="text-center py-4">
+                        <p class="text-xs text-slate-400 italic">Data belum cukup untuk prediksi.</p>
+                    </div>
+                </template>
+            </div>
+
             @if($activeBudgets->count() > 0)
-                <div class="lg:col-span-3 glass-card bento-card rounded-[2rem] p-6">
+                <div class="lg:col-span-2 glass-card bento-card rounded-[2rem] p-6">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-xs font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest">
                             Budget Progress</h3>
@@ -364,7 +420,7 @@
                             →</a>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         @foreach($activeBudgets->take(4) as $budget)
                             <div
                                 class="p-4 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">

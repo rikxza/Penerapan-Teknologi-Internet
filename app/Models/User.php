@@ -17,8 +17,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'currency',
-        'avatar',      // Tambahkan ini biar bisa upload foto
-        'avatar_type', // Tambahkan ini juga
+        'avatar',
+        'avatar_type',
+        'is_admin',
     ];
 
     protected $hidden = [
@@ -47,6 +48,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function budgets()
     {
         return $this->hasMany(Budget::class);
+    }
+
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class);
     }
 
     // --- ACCESSORS (Logika Otomatis) ---
