@@ -74,22 +74,16 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function getSymbolAttribute(): string
     {
-        return $this->currency === 'USD' ? '$' : 'Rp';
+        return 'Rp';
     }
 
     // --- HELPERS ---
 
     /**
-     * Format angka ke mata uang yang dipilih.
+     * Format angka ke mata uang (IDR Only).
      */
     public function formatCurrency($value): string
     {
-        $currency = $this->currency ?: 'IDR';
-
-        if ($currency === 'USD') {
-            return '$ ' . number_format($value, 2, '.', ',');
-        }
-
         return 'Rp ' . number_format($value, 0, ',', '.');
     }
 }

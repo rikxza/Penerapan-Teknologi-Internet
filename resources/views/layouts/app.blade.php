@@ -74,7 +74,19 @@
                     </p>
                 </div>
 
-                <div class="flex items-center gap-6">
+                <div class="flex items-center gap-4">
+                    {{-- Language Switcher --}}
+                    <div class="flex items-center bg-white/30 dark:bg-slate-700/30 rounded-xl p-1 backdrop-blur-sm">
+                        <a href="{{ route('lang.switch', 'id') }}"
+                           class="px-2 py-1 rounded-lg text-[10px] font-bold transition-all {{ app()->getLocale() == 'id' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-emerald-500' }}">
+                            ID
+                        </a>
+                        <a href="{{ route('lang.switch', 'en') }}"
+                           class="px-2 py-1 rounded-lg text-[10px] font-bold transition-all {{ app()->getLocale() == 'en' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-emerald-500' }}">
+                            EN
+                        </a>
+                    </div>
+
                     {{-- Tombol Toggle Dark Mode --}}
                     <button
                         @click="darkMode = !darkMode; document.documentElement.style.background = darkMode ? 'linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #065f46 100%)' : 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%)'"

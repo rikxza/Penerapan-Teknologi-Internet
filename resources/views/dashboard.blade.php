@@ -47,10 +47,10 @@
         {{-- Header Greeting --}}
         <div class="mb-8">
             <h1 class="text-2xl md:text-3xl font-black text-emerald-800 dark:text-white">
-                Selamat Datang, {{ explode(' ', Auth::user()->name)[0] }}! 👋
+                {{ __('Welcome') }}, {{ explode(' ', Auth::user()->name)[0] }}! 👋
             </h1>
             <p class="text-emerald-600/70 dark:text-emerald-400/70 text-sm font-medium mt-1">
-                Ringkasan keuangan bulan <span class="font-bold">{{ $currentMonth }}</span>
+                {{ __('Financial Overview') }} <span class="font-bold">{{ $currentMonth }}</span>
             </p>
         </div>
 
@@ -80,8 +80,8 @@
                         <div class="flex flex-col">
                             <p
                                 class="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
-                                Balance</p>
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Net savings bulan ini
+                                {{ __('Balance') }}</p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{{ __('Net savings this month') }}
                             </p>
                         </div>
                         <div
@@ -107,9 +107,8 @@
                         <div class="flex flex-col">
                             <p
                                 class="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">
-                                Income</p>
-                            <p class="text-[10px] text-emerald-600/60 dark:text-emerald-400/60 font-medium">Total
-                                pemasukan</p>
+                                {{ __('Income') }}</p>
+                            <p class="text-[10px] text-emerald-600/60 dark:text-emerald-400/60 font-medium">{{ __('Total Income') }}</p>
                         </div>
                         <div
                             class="w-10 h-10 bg-emerald-100 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
@@ -133,8 +132,8 @@
                         <div class="flex flex-col">
                             <p
                                 class="text-xs font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1">
-                                Expense</p>
-                            <p class="text-[10px] text-rose-600/60 dark:text-rose-400/60 font-medium">Total pengeluaran
+                                {{ __('Expense') }}</p>
+                            <p class="text-[10px] text-rose-600/60 dark:text-rose-400/60 font-medium">{{ __('Total Expense') }}
                             </p>
                         </div>
                         <div
@@ -160,8 +159,8 @@
                             <div class="flex flex-col">
                                 <p
                                     class="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-1">
-                                    Budget</p>
-                                <p class="text-[10px] text-amber-600/60 dark:text-amber-400/60 font-medium">Terpakai</p>
+                                    {{ __('Monthly Budget') }}</p>
+                                <p class="text-[10px] text-amber-600/60 dark:text-amber-400/60 font-medium">{{ __('Used') }}</p>
                             </div>
                             <div
                                 class="w-10 h-10 bg-amber-100 dark:bg-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
@@ -213,7 +212,7 @@
                     <div class="text-center md:text-left flex-1 flex flex-col justify-center">
                         <p
                             class="text-xs font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest mb-2">
-                            Financial Health Score</p>
+                            {{ __('Financial Health Score') }}</p>
                         <h2 class="text-2xl md:text-3xl font-black text-slate-800 dark:text-white mb-2 leading-tight">
                             {{ $healthStatus }}
                         </h2>
@@ -221,12 +220,12 @@
                         <div class="flex flex-wrap justify-center md:justify-start gap-2 mt-4">
                             <span
                                 class="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                                💰 Savings:
+                                💰 {{ __('Savings') }}:
                                 {{ $totalIncome > 0 ? round((($totalIncome - $totalExpense) / $totalIncome) * 100) : 0 }}%
                             </span>
                             <span
                                 class="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300">
-                                📊 {{ $activeBudgets->count() }} Active Budgets
+                                📊 {{ $activeBudgets->count() }} {{ __('Active Budgets') }}
                             </span>
                         </div>
                     </div>
@@ -288,7 +287,7 @@
             <div class="glass-card bento-card rounded-[2rem] p-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-xs font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest">
-                        Expense by Category</h3>
+                        {{ __('Expense by Category') }}</h3>
                     <span class="text-[10px] font-bold text-slate-400">{{ $currentMonth }}</span>
                 </div>
 
@@ -307,7 +306,7 @@
                     </div>
                 @else
                     <div class="h-48 flex items-center justify-center">
-                        <p class="text-slate-400 dark:text-slate-500 text-sm italic">Belum ada pengeluaran</p>
+                        <p class="text-slate-400 dark:text-slate-500 text-sm italic">{{ __('No expenses found') }}</p>
                     </div>
                 @endif
             </div>
@@ -316,10 +315,9 @@
             <div class="lg:col-span-2 glass-card bento-card rounded-[2rem] p-6">
                 <div class="flex items-center justify-between mb-6">
                     <h3 class="text-xs font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest">
-                        Recent Transactions</h3>
+                        {{ __('Recent Transactions') }}</h3>
                     <a href="{{ route('transactions.index') }}"
-                        class="text-[10px] font-black text-emerald-500 hover:text-emerald-600 uppercase tracking-tight transition-colors">View
-                        All →</a>
+                        class="text-[10px] font-black text-emerald-500 hover:text-emerald-600 uppercase tracking-tight transition-colors">{{ __('View All') }} →</a>
                 </div>
 
                 <div class="space-y-3">
@@ -346,7 +344,7 @@
                             </p>
                         </div>
                     @empty
-                        <p class="text-center text-slate-400 dark:text-slate-500 py-8 italic">Belum ada transaksi.</p>
+                        <p class="text-center text-slate-400 dark:text-slate-500 py-8 italic">{{ __('No transactions found') }}</p>
                     @endforelse
                 </div>
             </div>
@@ -370,8 +368,8 @@
                         🔮
                     </div>
                     <div>
-                        <p class="font-black text-slate-800 dark:text-white text-sm">AI Forecast</p>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Prediksi bulan depan</p>
+                        <p class="font-black text-slate-800 dark:text-white text-sm">{{ __('AI Forecast') }}</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{{ __('Next Month Prediction') }}</p>
                     </div>
                 </div>
 
@@ -384,7 +382,7 @@
 
                 <template x-if="!loading && forecast">
                     <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estimasi Pengeluaran
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ __('Expense Estimation') }}
                         </p>
                         <p class="text-2xl font-black text-slate-800 dark:text-white mt-1 mb-4"
                             x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(forecast.predicted_amount)"></p>
@@ -414,7 +412,7 @@
                 <div class="lg:col-span-2 glass-card bento-card rounded-[2rem] p-6">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-xs font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest">
-                            Budget Progress</h3>
+                            {{ __('Active Budgets') }}</h3>
                         <a href="{{ route('budgeting.index') }}"
                             class="text-[10px] font-black text-emerald-500 hover:text-emerald-600 uppercase tracking-tight transition-colors">Manage
                             →</a>
@@ -463,8 +461,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="font-bold text-slate-800 dark:text-white">Scan Receipt</p>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Catat dari struk belanja
+                        <p class="font-bold text-slate-800 dark:text-white">{{ __('Scan Receipt') }}</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{{ __('Record from receipt') }}
                         </p>
                     </div>
                 </a>
@@ -479,9 +477,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="font-bold text-slate-800 dark:text-white">Add Transaction</p>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Catat
-                            pemasukan/pengeluaran</p>
+                        <p class="font-bold text-slate-800 dark:text-white">{{ __('Add Transaction') }}</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{{ __('Record income/expense') }}</p>
                     </div>
                 </a>
             </div>

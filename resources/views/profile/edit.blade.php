@@ -129,8 +129,8 @@
                                         <input :type="hideEmail ? 'password' : 'text'" 
                                                value="{{ Auth::user()->email }}" 
                                                readonly
-                                               class="w-full bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded-2xl p-4 font-bold cursor-not-allowed outline-none tracking-wider">
-                                        <button @click="hideEmail = !hideEmail" type="button" class="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-emerald-500">
+                                               class="w-full bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded-2xl p-4 pr-12 font-bold cursor-not-allowed outline-none tracking-wider">
+                                        <button @click="hideEmail = !hideEmail" type="button" class="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-emerald-500">
                                             <svg x-show="hideEmail" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.025 10.025 0 014.132-5.411m0 0L21 21m-2.102-2.102L12 12m4.817-4.817A3 3 0 0112 15c-1.657 0-3-1.343-3-3a3 3 0 01.183-1.012M12 5c4.478 0 8.268-2.943 9.542 7a10.025 10.025 0 01-4.132 5.411" /></svg>
                                             <svg x-show="!hideEmail" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268-2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                         </button>
@@ -180,15 +180,6 @@
                                 <div>
                                     <p class="text-sm font-black text-slate-700 dark:text-slate-200">Mata Uang Utama</p>
                                     <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Pilih format mata uang aplikasi</p>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <select name="currency" class="bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-[11px] font-black text-slate-600 dark:text-slate-300 py-2 pl-3 pr-8 focus:ring-2 focus:ring-emerald-500/20 appearance-none cursor-pointer uppercase tracking-widest outline-none">
-                                    <option value="IDR" {{ Auth::user()->currency == 'IDR' ? 'selected' : '' }}>IDR (Rp)</option>
-                                    <option value="USD" {{ Auth::user()->currency == 'USD' ? 'selected' : '' }}>USD ($)</option>
-                                </select>
-                                <div class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
                                 </div>
                             </div>
                         </div>

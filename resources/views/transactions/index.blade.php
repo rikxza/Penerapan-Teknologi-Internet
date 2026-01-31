@@ -2,8 +2,8 @@
     {{-- Alpine.js: filter untuk nyaring data --}}
     <div x-data="{ filter: 'all' }">
 
-        <x-slot name="header">Transaksi</x-slot>
-        <x-slot name="subtitle">Kelola pemasukan dan pengeluaran kamu</x-slot>
+        <x-slot name="header">{{ __('Transactions') }}</x-slot>
+        <x-slot name="subtitle">{{ __('Manage your income and expenses') }}</x-slot>
 
         {{-- 1. HEADER SECTION --}}
         <div class="px-4 md:px-8 py-6">
@@ -11,10 +11,12 @@
                 <div>
                     <h1
                         class="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white transition-colors duration-500">
-                        Transaksi</h1>
+                        {{ __('Transactions') }}
+                    </h1>
                     <p
                         class="text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] transition-colors duration-500">
-                        Kelola pemasukan dan pengeluaran kamu dengan cerdas.</p>
+                        {{ __('Manage your income and expenses') }}
+                    </p>
                 </div>
             </div>
         </div>
@@ -24,10 +26,12 @@
             {{-- Month/Date Filter Header --}}
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div class="flex items-center gap-2">
-                    <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Statistik & Filter</h3>
+                    <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{{ __('Filter') }} &
+                        {{ __('Analysis') }}
+                    </h3>
                     <button @click="showFilters = !showFilters"
                         :class="showFilters ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-500'"
-                        class="p-1.5 rounded-lg transition-all" title="Toggle Filters">
+                        class="p-1.5 rounded-lg transition-all" title="{{ __('Filter') }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -62,6 +66,10 @@
                         <a href="{{ route('report.export.csv', ['period' => sprintf('%d-%02d', $selectedYear, $selectedMonth)]) }}"
                             class="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
                             📊 CSV
+                        </a>
+                        <a href="{{ route('report.export.excel', ['period' => sprintf('%d-%02d', $selectedYear, $selectedMonth)]) }}"
+                            class="bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                            📈 Excel
                         </a>
                         <a href="{{ route('report.export.pdf', ['period' => sprintf('%d-%02d', $selectedYear, $selectedMonth)]) }}"
                             class="bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
@@ -206,7 +214,7 @@
                             <div class="flex items-center gap-4">
                                 <div
                                     class="w-11 h-11 rounded-xl flex items-center justify-center text-lg shadow-inner shrink-0
-                                                                {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' }}">
+                                                                                                {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                             d="{{ $transaction->type == 'income' ? 'M7 11l5-5m0 0l5 5m-5-5v12' : 'M17 13l-5 5m0 0l-5-5m5 5V6' }}" />
@@ -230,7 +238,7 @@
                                     <div class="flex items-center gap-2 mt-0.5">
                                         <span
                                             class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full 
-                                                                        {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600' }}">
+                                                                                                        {{ $transaction->type == 'income' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600' }}">
                                             {{ $transaction->category->name ?? 'Uncategorized' }}
                                         </span>
                                         <span
@@ -289,9 +297,9 @@
             {{-- RIGHT COLUMN: ADD TRANSACTION FORM (1/3 width) --}}
             <div class="lg:col-span-1">
                 <div
-                    class="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-xl dark:shadow-2xl p-6 lg:sticky lg:top-24">
+                    class="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-xl dark:shadow-2xl transition-all duration-500 p-5 lg:sticky lg:top-4">
 
-                    <div class="flex items-center gap-3 mb-6">
+                    <div class="flex items-center gap-3 mb-4">
                         <div
                             class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,39 +307,42 @@
                                     d="M12 4v16m8-8H4" />
                             </svg>
                         </div>
-                        <h3 class="text-lg font-black text-slate-900 dark:text-white">Tambah Transaksi</h3>
+                        <h3 class="text-lg font-black text-slate-900 dark:text-white">{{ __('Add Transaction') }}</h3>
                     </div>
 
                     <form method="post" action="{{ route('transactions.store') }}" enctype="multipart/form-data"
-                        class="space-y-4">
+                        class="space-y-3">
                         @csrf
 
                         {{-- Type --}}
-                        <div class="space-y-1.5">
+                        <div class="space-y-1">
                             <label
-                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipe</label>
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{{ __('Type') }}</label>
                             <select name="type" required
-                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
-                                <option value="expense">💸 Pengeluaran</option>
-                                <option value="income">💰 Pemasukan</option>
+                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                                <option value="expense">💸 {{ __('Expense') }}</option>
+                                <option value="income">💰 {{ __('Income') }}</option>
                             </select>
                         </div>
 
                         {{-- Amount --}}
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jumlah
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{{ __('Amount') }}
                                 ({{ Auth::user()->currency }})</label>
                             <input type="number" name="amount" required placeholder="0"
-                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
                         </div>
 
                         {{-- Category --}}
-                        <div class="space-y-1.5">
+                        <div class="space-y-1" x-data="{ categoryId: '' }">
                             <label
-                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</label>
-                            <select name="category_id" required
-                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{{ __('Category') }}</label>
+                            <select name="category_id" x-model="categoryId" required
+                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
                                 <option value="">Pilih kategori...</option>
+                                <option value="new" class="font-bold text-emerald-600">➕ {{ __('Create New Category') }}
+                                </option>
                                 @foreach ($categories as $type => $categoryList)
                                     <optgroup label="{{ ucfirst($type) }}">
                                         @foreach ($categoryList as $category)
@@ -340,34 +351,43 @@
                                     </optgroup>
                                 @endforeach
                             </select>
+
+                            {{-- Input Manual Kategori --}}
+                            <div x-show="categoryId === 'new'" x-transition class="mt-2">
+                                <input type="text" name="new_category" placeholder="Masukkan nama kategori baru..."
+                                    class="w-full bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all placeholder:text-emerald-300">
+                                @error('new_category')
+                                    <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
 
                         {{-- Date --}}
-                        <div class="space-y-1.5">
+                        <div class="space-y-1">
                             <label
-                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal</label>
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{{ __('Date') }}</label>
                             <input type="date" name="transaction_date" value="{{ date('Y-m-d') }}"
                                 max="{{ date('Y-m-d') }}" required
-                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
                         </div>
 
                         {{-- Description --}}
-                        <div class="space-y-1.5">
+                        <div class="space-y-1">
                             <label
-                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Deskripsi</label>
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{{ __('Description') }}</label>
                             <input type="text" name="description" required placeholder="Makan siang di warteg..."
-                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
                             @error('description')
                                 <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1">{{ $message }}</p>
                             @enderror
                         </div>
 
                         {{-- Receipt --}}
-                        <div class="space-y-1.5">
+                        <div class="space-y-1">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bukti
                                 Foto (Opsional)</label>
                             <input type="file" name="receipt_image" accept="image/*"
-                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-2 text-sm focus:ring-2 focus:ring-emerald-500 transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-500/10 file:text-emerald-700 dark:file:text-emerald-400 hover:file:bg-emerald-100">
+                                class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-1.5 text-sm focus:ring-2 focus:ring-emerald-500 transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-500/10 file:text-emerald-700 dark:file:text-emerald-400 hover:file:bg-emerald-100">
                             @error('receipt_image')
                                 <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1">{{ $message }}</p>
                             @enderror
@@ -375,13 +395,13 @@
 
                         {{-- Submit Button --}}
                         <button type="submit"
-                            class="w-full mt-2 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-xl hover:shadow-emerald-500/40 active:scale-[0.98]">
+                            class="w-full mt-2 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-xl hover:shadow-emerald-500/40 active:scale-[0.98]">
                             <span class="flex items-center justify-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                         d="M5 13l4 4L19 7" />
                                 </svg>
-                                Simpan Transaksi
+                                {{ __('Save Transaction') }}
                             </span>
                         </button>
                     </form>

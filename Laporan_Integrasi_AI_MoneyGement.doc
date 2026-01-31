@@ -1,0 +1,165 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><title>Laporan Integrasi AI</title>
+<style>
+body { font-family: Calibri, sans-serif; line-height: 1.5; } 
+pre { background: #f5f5f5; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-family: Consolas, monospace; white-space: pre-wrap; word-wrap: break-word; } 
+h1 { color: #2e74b5; border-bottom: 2px solid #2e74b5; padding-bottom: 5px; }
+h2 { color: #1f4e79; margin-top: 20px; }
+h3 { color: #1f4e79; font-style: italic; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+</style>
+</head><body><h1>Laporan Teknis Integrasi AI - MoneyGement</h1>
+<p><b>Versi Laporan</b>: 2.0 (Updated with Code)</p>
+<p><b>Tanggal</b>: 31 Januari 2026</p>
+<p><b>Model AI</b>: Google Gemini 2.5 Flash</p>
+<p>---</p>
+<h2>1. Persiapan Awal (API Key)</h2>
+<p>Sebelum coding, langkah pertama adalah mendapatkan akses ke Google Gemini API.</p>
+<p><b>Langkah-langkah:</b></p>
+<ol>
+<li>Buka [Google AI Studio](https://aistudio.google.com/).</li>
+<li>Login dengan akun Google.</li>
+<li>Klik <b>"Get API key"</b>.</li>
+<li>Klik <b>"Create API key"</b> (bisa pilih project baru atau yang sudah ada).</li>
+<li>Copy key yang muncul (dimulai dengan `AIza...`).</li>
+</ol>
+<p>---</p>
+<h2>2. Konfigurasi Environment</h2>
+<p>Agar aman, API Key tidak boleh ditulis langsung di code (hardcoded). Kita menyimpannya di file `.env`.</p>
+<p><b>File: `.env`</b></p>
+<pre>GEMINI_API_KEY=AIzaSyDxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+</pre>
+<p><b>File: `config/services.php` (Optional, tapi good practice)</b></p>
+<p>Kami mengaksesnya langsung via `env()` di controller demi kesederhanaan, tapi idealnya bisa via config.</p>
+<p>---</p>
+<h2>3. Implementasi Backend (Laravel)</h2>
+<p>Seluruh logika AI terpusat di `app/Http/Controllers/AiController.php`.</p>
+<h3>A. Helper Function (Wrapper)</h3>
+<p>Kami membuat fungsi private `callGemini` untuk menangani HTTP Request ke Google, supaya tidak perlu menulis ulang kode request berkali-kali.</p>
+<pre>private function callGemini(string $prompt, ?string $imageBase64 = null, ?string $mimeType = null)
+{
+    $apiKey = env('GEMINI_API_KEY');
+    
+    // Setup payload (Text-only atau Multimodal/Gambar)
+    if ($imageBase64 &amp;&amp; $mimeType) {
+        $contents = [[
+            'parts' =&gt; [
+                ['inline_data' =&gt; ['mime_type' =&gt; $mimeType, 'data' =&gt; $imageBase64]],
+                ['text' =&gt; $prompt]
+            ]
+        ]];
+    } else {
+        $contents = [[
+            'parts' =&gt; [['text' =&gt; $prompt]]
+        ]];
+    }
+
+    // HTTP Request ke Gemini 2.5 Flash
+    $response = Http::timeout(60)-&gt;post(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}",
+        [
+            'contents' =&gt; $contents,
+            'generationConfig' =&gt; [
+                'temperature' =&gt; 0.7, // Kreativitas sedang
+                'maxOutputTokens' =&gt; 4096,
+            ]
+        ]
+    );
+
+    return $response-&gt;json()['candidates'][0]['content']['parts'][0]['text'] ?? null;
+}
+</pre>
+<h3>B. Fitur 1: Smart Dashboard Insight</h3>
+<p>Memberikan analisis singkat di dashboard. Prompt dibuat sangat ketat agar outputnya konsisten.</p>
+<pre>// Prompt Construction
+$prompt = "Berikan 3 poin insight SANGAT SINGKAT...
+           Data: 
+           - Pemasukan: Rp{$totalIncome}
+           - Pengeluaran: Rp{$totalExpense}
+           ...
+           Format Output WAJIB (Gunakan Emoji):
+           ⚠️ [Peringatan]
+           💡 [Saran]
+           📈 [Status]";
+
+// Call AI
+$insight = $this-&gt;callGemini($prompt);
+</pre>
+<h3>C. Fitur 2: Chatbot Keuangan (Context Aware)</h3>
+<p>Chatbot ini "tahu" kondisi keuangan user karena kita menyuntikkan data (Context Injection) ke dalam prompt sebelum pertanyaan user.</p>
+<pre>public function chat(Request $request) {
+    // 1. Ambil data keuangan dari Database
+    $totalIncome = Transaction::where(...)-&gt;sum('amount');
+    $topCategory = ...;
+    
+    // 2. Susun System Prompt
+    $systemPrompt = "Kamu adalah 'G-ment', asisten keuangan...
+                     Data User:
+                     - Saldo: Rp{$balance}
+                     - Kategori Terboros: {$topCategory}
+                     ...";
+                     
+    // 3. Gabung dengan pertanyaan user
+    $finalPrompt = $systemPrompt . "\nUser bertanya: " . $request-&gt;message;
+    
+    // 4. Kirim ke AI
+    $reply = $this-&gt;callGemini($finalPrompt);
+    
+    return response()-&gt;json(['reply' =&gt; $reply]);
+}
+</pre>
+<h3>D. Fitur 3: Scan Receipt (Vision AI)</h3>
+<p>Menggunakan kemampuan Gemini membaca gambar untuk ekstrak data struk menjadi JSON.</p>
+<pre>public function scanReceipt(Request $request) {
+    // 1. Encode gambar ke Base64
+    $image = $request-&gt;file('receipt_image');
+    $base64 = base64_encode(file_get_contents($image));
+    $mime = $image-&gt;getMimeType();
+
+    // 2. Prompt khusus JSON Extraction
+    $prompt = "Ekstrak info struk ini ke format JSON: 
+               {merchant_name, date, total_amount, items...}";
+
+    // 3. Panggil AI dengan Gambar
+    $jsonResult = $this-&gt;callGemini($prompt, $base64, $mime);
+    
+    // 4. Decode JSON &amp; Auto-Categorize (Logic tambahan di sistem)
+    $data = json_decode($jsonResult);
+    // ... logic pencocokan kategori ...
+}
+</pre>
+<p>---</p>
+<h2>4. Integrasi Frontend (JavaScript)</h2>
+<p>Di sisi tampilan (Blade), kita menggunakan AJAX/Fetch untuk memanggil API backend ini agar halaman tidak perlu refresh (loading state).</p>
+<p><b>Contoh: Memanggil Insight di Dashboard</b></p>
+<pre>&lt;div x-data="{ insight: 'Loading...', loading: true }" x-init="
+    fetch('{{ route('ai.insight') }}')
+        .then(res =&gt; res.json())
+        .then(data =&gt; {
+            insight = data.insight;
+            loading = false;
+        })
+"&gt;
+    &lt;p x-text="insight"&gt;&lt;/p&gt;
+&lt;/div&gt;
+</pre>
+<p><b>Alur Data Frontend:</b></p>
+<ol>
+<li>User buka Dashboard.</li>
+<li>JS secara background request ke `/ai/insight`.</li>
+<li>Laravel proses data -> kirim ke Gemini -> dapat teks.</li>
+<li>Laravel balikkan JSON ke JS.</li>
+<li>Teks muncul di layar.</li>
+</ol>
+<p>---</p>
+<h2>5. Ringkasan System</h2>
+<table>
+<tr><td>Komponen</td><td>Deskripsi</td></tr>
+<tr><td>:---</td><td>:---</td></tr>
+<tr><td><b>Model</b></td><td>`gemini-2.5-flash` (Cepat & Murah/Gratis)</td></tr>
+<tr><td><b>Library</b></td><td>Built-in Laravel `Http` Client (Tanpa library tambahan berat)</td></tr>
+<tr><td><b>Security</b></td><td>API Key di Server-side, User tidak bisa lihat key.</td></tr>
+<tr><td><b>Context</b></td><td>Data keuangan disuntikkan realtime setiap request chat.</td></tr>
+</table></body></html>

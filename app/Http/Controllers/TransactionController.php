@@ -139,18 +139,53 @@ class TransactionController extends Controller
      */
     public function store(Request $request)
     {
-        // 1. Validasi Input (Hanya aturan validasi di dalam sini)
-        $validated = $request->validate([
+        // 1. Validasi Input
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'type' => ['required', 'string', 'in:income,expense'],
             'amount' => ['required', 'numeric', 'min:1'],
-            'category_id' => ['required', 'exists:categories,id'],
+            'category_id' => ['required'], // Bisa ID atau string 'new'
+            'new_category' => ['required_if:category_id,new', 'nullable', 'string', 'max:255'],
             'transaction_date' => ['required', 'date', 'before_or_equal:today'],
             'description' => ['required', 'string', 'min:3', 'max:255'],
             'receipt_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput()->with('openForm', true);
+        }
+
+        $validated = $validator->validated();
+
         // 2. Olah data setelah validasi sukses
         $validated['user_id'] = Auth::id();
+
+        // 2b. Handle Custom Category
+        if ($request->input('category_id') === 'new') {
+            $newCategoryName = $validated['new_category'];
+
+            // Cek apakah kategori dengan nama sama sudah ada (baik global atau milik user)
+            $existingCategory = Category::where('name', $newCategoryName)
+                ->where(function ($q) {
+                    $q->where('user_id', Auth::id())
+                        ->orWhereNull('user_id');
+                })
+                ->where('type', $validated['type'])
+                ->first();
+
+            if ($existingCategory) {
+                $validated['category_id'] = $existingCategory->id;
+            } else {
+                // Buat baru
+                $newCat = Category::create([
+                    'name' => $newCategoryName,
+                    'type' => $validated['type'],
+                    'user_id' => Auth::id()
+                ]);
+                $validated['category_id'] = $newCat->id;
+            }
+            // Hapus field dummy
+            unset($validated['new_category']);
+        }
 
         /** * FIX JAM: Gabungkan tanggal dari input dengan jam menit detik saat ini 
          * agar jamnya tidak 00:00.

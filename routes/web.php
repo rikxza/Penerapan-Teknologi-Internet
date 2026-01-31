@@ -18,6 +18,13 @@ Route::get('/', function () {
     return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
 });
 
+Route::get('lang/{locale}', function ($locale) {
+    if (in_array($locale, ['id', 'en'])) {
+        session(['locale' => $locale]);
+    }
+    return back();
+})->name('lang.switch');
+
 Route::middleware(['auth', 'verified'])->group(function () {
 
     // Dashboard
@@ -46,6 +53,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // EXPORT REPORT (UC-08)
     Route::get('/report/export-csv', [ReportController::class, 'exportCsv'])->name('report.export.csv');
+    Route::get('/report/export-excel', [ReportController::class, 'exportExcel'])->name('report.export.excel');
     Route::get('/report/export-pdf', [ReportController::class, 'exportPdf'])->name('report.export.pdf');
 
     // Transactions
