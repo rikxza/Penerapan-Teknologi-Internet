@@ -90,10 +90,6 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     // Route::post('/tickets/{ticket}/close', [AdminTicketController::class, 'close'])->name('tickets.close');
 });
 
-Route::get('/fix-names', function () {
-    \App\Models\Transaction::where('description', 'LIKE', 'Add Budget:%')
-        ->update(['description' => \DB::raw("REPLACE(description, 'Add Budget:', 'Alokasi Budget :')")]);
-    return "Names fixed!";
-});
+// Route removed for security - was a one-time fix script
 
 require __DIR__ . '/auth.php';

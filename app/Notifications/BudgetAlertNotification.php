@@ -25,7 +25,20 @@ class BudgetAlertNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $emoji = $this->type == 'danger' ? '🚨' : '⚠️';
+
+        return (new MailMessage)
+            ->subject($emoji . ' Peringatan Budget - MoneyGement')
+            ->greeting('Halo, ' . $notifiable->name . '!')
+            ->line($this->message)
+            ->action('Cek Budget Sekarang', route('budgeting.index'))
+            ->line('Kelola keuanganmu dengan bijak!')
+            ->salutation('Salam, Tim MoneyGement');
     }
 
     public function toDatabase(object $notifiable): array
@@ -46,3 +59,4 @@ class BudgetAlertNotification extends Notification
         ];
     }
 }
+

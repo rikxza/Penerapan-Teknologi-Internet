@@ -4,14 +4,36 @@ namespace App\Http\Controllers;
 
 use App\Models\{Transaction, Budget, Category};
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        $now = Carbon::now();
+
+        // Month filter - default to current month
+        $period = $request->input('period');
+        if ($period && preg_match('/^(\d{4})-(\d{2})$/', $period, $matches)) {
+            $selectedYear = (int) $matches[1];
+            $selectedMonth = (int) $matches[2];
+            $now = Carbon::createFromDate($selectedYear, $selectedMonth, 1);
+        } else {
+            $now = Carbon::now();
+            $selectedYear = $now->year;
+            $selectedMonth = $now->month;
+        }
+
+        // Generate available months for filter (last 12 months)
+        $availableMonths = collect();
+        for ($i = 0; $i < 12; $i++) {
+            $date = Carbon::now()->subMonths($i);
+            $availableMonths->push([
+                'value' => $date->format('Y-m'),
+                'label' => $date->translatedFormat('F Y'),
+            ]);
+        }
 
         // 1. PEMASUKAN
         // FIX: Rename history 'Add Budget' jadi 'Alokasi Budget' (Run once then remove)
@@ -122,6 +144,8 @@ class DashboardController extends Controller
             'expenseByCategory' => $expenseByCategory,
             'totalBudgetRealized' => $totalBudgetRealized,
             'totalBudgetPercentage' => $totalBudgetPercentage,
+            'availableMonths' => $availableMonths,
+            'selectedPeriod' => $period ?? Carbon::now()->format('Y-m'),
         ]);
     }
 }

@@ -45,13 +45,26 @@
     <div class="min-h-screen p-6 md:p-8">
 
         {{-- Header Greeting --}}
-        <div class="mb-8">
-            <h1 class="text-2xl md:text-3xl font-black text-emerald-800 dark:text-white">
-                {{ __('Welcome') }}, {{ explode(' ', Auth::user()->name)[0] }}! 👋
-            </h1>
-            <p class="text-emerald-600/70 dark:text-emerald-400/70 text-sm font-medium mt-1">
-                {{ __('Financial Overview') }} <span class="font-bold">{{ $currentMonth }}</span>
-            </p>
+        <div class="mb-8 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-black text-emerald-800 dark:text-white">
+                    {{ __('Welcome') }}, {{ explode(' ', Auth::user()->name)[0] }}! 👋
+                </h1>
+                <p class="text-emerald-600/70 dark:text-emerald-400/70 text-sm font-medium mt-1">
+                    {{ __('Financial Overview') }} <span class="font-bold">{{ $currentMonth }}</span>
+                </p>
+            </div>
+            {{-- Month Filter --}}
+            <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
+                <select name="period" onchange="this.form.submit()"
+                    class="bg-white/50 dark:bg-slate-800/50 border border-emerald-200 dark:border-slate-600 rounded-xl px-4 py-2 text-sm font-semibold text-emerald-800 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none backdrop-blur-sm cursor-pointer">
+                    @foreach($availableMonths as $month)
+                        <option value="{{ $month['value'] }}" {{ $selectedPeriod == $month['value'] ? 'selected' : '' }}>
+                            {{ $month['label'] }}
+                        </option>
+                    @endforeach
+                </select>
+            </form>
         </div>
 
         {{--

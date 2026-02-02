@@ -1,7 +1,17 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
     x-data="{ darkMode: localStorage.getItem('dark') === 'true' }"
-    x-init="$watch('darkMode', val => localStorage.setItem('dark', val))" :class="{ 'dark': darkMode }">
+    x-init="
+        darkMode = localStorage.getItem('dark') === 'true';
+        $watch('darkMode', val => {
+            localStorage.setItem('dark', val);
+            document.documentElement.classList.toggle('dark', val);
+            document.documentElement.style.background = val 
+                ? 'linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #065f46 100%)' 
+                : 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%)';
+        });
+    " 
+    :class="{ 'dark': darkMode }">
 
 <head>
     <meta charset="utf-8">
@@ -89,7 +99,7 @@
 
                     {{-- Tombol Toggle Dark Mode --}}
                     <button
-                        @click="darkMode = !darkMode; document.documentElement.style.background = darkMode ? 'linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #065f46 100%)' : 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%)'"
+                        @click="darkMode = !darkMode"
                         class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/30 dark:bg-slate-700/30 text-emerald-700 dark:text-amber-400 transition-all hover:scale-105 backdrop-blur-sm">
                         <svg x-show="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -256,7 +266,7 @@
     @endif
 
     {{-- G-Money Floating Chat Widget - FIXED POSITION --}}
-    <div x-data="chatWidget()" @open-ai-chat.window="open = true" class="fixed bottom-6 right-6 z-[99999]"
+    <div x-data="chatWidget()" class="fixed bottom-6 right-6 z-[99999]"
         style="position: fixed !important;">
 
         {{-- Chat Box --}}
