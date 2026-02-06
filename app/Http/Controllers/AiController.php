@@ -13,7 +13,7 @@ class AiController extends Controller
 {
     private function getGeminiApiKey()
     {
-        return env('GEMINI_API_KEY');
+        return config('services.gemini.key');
     }
 
     private function callGemini(string $prompt, ?string $imageBase64 = null, ?string $mimeType = null)
