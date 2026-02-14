@@ -6,7 +6,8 @@
         <x-slot name="subtitle">Atur budget dan target keuangan kamu</x-slot>
 
         {{-- HEADER --}}
-        <div class="px-8 py-6 flex justify-between items-center">
+        <div
+            class="px-4 md:px-8 py-4 md:py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-slate-900 dark:text-white">
                     Budget & Goals
@@ -29,7 +30,7 @@
 
         {{-- WRAPPER --}}
         <div
-            class="mx-4 md:mx-8 mb-8 p-8 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-[3rem] shadow-xl">
+            class="mx-4 md:mx-8 mb-8 p-4 md:p-8 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-[2rem] md:rounded-[3rem] shadow-xl">
 
             {{-- NOTIF --}}
             @if (session('status'))

@@ -114,13 +114,48 @@
         .decorative-panel {
             transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        /* Floating Label Styles */
+        .input-group {
+            position: relative;
+            overflow: visible;
+        }
+
+        .input-group label {
+            transition: all 0.2s ease;
+        }
+
+        .input-group input:placeholder-shown+label {
+            top: 50%;
+            transform: translateY(-50%) scale(1);
+            color: #6b7280;
+            background-color: transparent;
+            padding: 0;
+        }
+
+        .input-group input:focus+label,
+        .input-group input:not(:placeholder-shown)+label {
+            top: 0;
+            transform: translateY(-50%) scale(0.85);
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(4px);
+            padding: 0 6px;
+            border-radius: 4px;
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .dark .input-group input:focus+label,
+        .dark .input-group input:not(:placeholder-shown)+label {
+            background: rgba(15, 23, 42, 0.8);
+        }
     </style>
 </head>
 
-<body class="gradient-bg min-h-screen flex flex-col transition-colors duration-500 overflow-hidden">
+<body class="gradient-bg h-screen flex flex-col transition-colors duration-500 overflow-hidden">
 
     {{-- Header --}}
-    <header class="flex justify-between items-center p-6 md:p-8 relative z-20">
+    <header class="flex justify-between items-center px-6 py-4 md:px-8 md:py-5 relative z-20 shrink-0">
         <div class="flex items-center gap-3">
             <img src="{{ asset('images/logo.png') }}" alt="MoneyGement" class="w-10 h-10 object-contain">
             <span class="text-xl font-black tracking-tight text-emerald-700 dark:text-emerald-400">Money<span
@@ -155,15 +190,16 @@
     </header>
 
     {{-- Main Content --}}
-    <main class="flex-1 flex items-center justify-center p-6 md:p-8 relative">
-        <div class="w-full max-w-5xl relative">
+    <main class="flex-1 flex items-center justify-center px-6 py-3 md:px-8 md:py-4 relative min-h-0">
+        <div class="w-full max-w-5xl relative h-full">
 
             {{-- Panels Container --}}
-            <div class="flex gap-6">
+            <div class="flex gap-6 h-full">
 
                 {{-- Left Panel (Decorative for Login, Form for Register) --}}
-                <div
-                    class="w-1/2 glass-panel rounded-[32px] p-8 relative overflow-hidden min-h-[500px] hidden md:block">
+                <div class="w-full md:w-1/2 glass-panel rounded-[32px] p-6 relative overflow-hidden"
+                    :class="!isLogin ? 'block' : 'hidden md:block'"> {{-- MOBILE FIX: Show if registering --}}
+
                     {{-- Decorative Blobs (shown when Login) --}}
                     <div x-show="isLogin" x-transition:enter="transition ease-out duration-500"
                         x-transition:enter-start="opacity-0 scale-90" x-transition:enter-end="opacity-100 scale-100"
@@ -181,12 +217,6 @@
                         </div>
                         <div
                             class="blob w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-600 opacity-50 absolute top-32 left-24 float-animation-delay">
-                        </div>
-                        <div
-                            class="absolute -bottom-20 -right-20 w-64 h-64 rounded-full bg-gradient-to-tr from-emerald-400/30 to-teal-300/20 blur-xl">
-                        </div>
-                        <div
-                            class="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-gradient-to-br from-green-400/20 to-emerald-300/30 blur-2xl">
                         </div>
                     </div>
 
@@ -207,7 +237,8 @@
                             </p>
                         </div>
 
-                        @if ($errors->any() && $errors->has('name'))
+                        {{-- Validation Errors --}}
+                        @if ($errors->any())
                             <div
                                 class="mb-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs">
                                 <ul class="list-disc ml-4">
@@ -218,77 +249,46 @@
                             </div>
                         @endif
 
-                        <form action="{{ route('register') }}" method="POST" class="space-y-4" x-data="{
-                            nameError: '{{ $errors->has('name') ? $errors->first('name') : '' }}',
-                            emailError: '{{ $errors->has('name') ? ($errors->has('email') ? $errors->first('email') : '') : '' }}',
-                            passwordError: '{{ $errors->has('name') ? ($errors->has('password') ? $errors->first('password') : '') : '' }}'
-                        }">
+                        <form action="{{ route('register') }}" method="POST" class="space-y-4"
+                            x-data="{ nameError: '', emailError: '', passwordError: '' }">
                             @csrf
-                            <div class="relative">
-                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                </span>
-                                <input type="text" name="name" value="{{ $errors->has('name') ? old('name') : '' }}"
-                                    placeholder="Full Name" @input="nameError = null" autocomplete="off"
-                                    :class="{'border-red-500': nameError, 'border-emerald-200/50 dark:border-white/10': !nameError}"
-                                    class="w-full bg-white/50 dark:bg-white/10 border rounded-2xl pl-12 pr-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
-                                    required>
-                            </div>
-                            <p x-show="nameError" x-text="nameError"
-                                class="text-red-500 text-xs pl-4 mt-1 mb-2 transition-all"></p>
 
-                            <div class="relative">
-                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                </span>
-                                <input type="email" name="email" value="{{ $errors->has('name') ? old('email') : '' }}"
-                                    placeholder="Email Address" @input="emailError = null" autocomplete="off"
-                                    :class="{'border-red-500': emailError, 'border-emerald-200/50 dark:border-white/10': !emailError}"
-                                    class="w-full bg-white/50 dark:bg-white/10 border rounded-2xl pl-12 pr-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
-                                    required>
+                            {{-- Name --}}
+                            <div class="input-group">
+                                <input type="text" name="name" id="reg_name" required placeholder=" " autocomplete="off"
+                                    class="w-full bg-white/50 dark:bg-white/10 border-2 border-emerald-100 dark:border-white/10 rounded-2xl px-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-0 outline-none transition-all">
+                                <label for="reg_name"
+                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm transition-all pointer-events-none">Full
+                                    Name</label>
                             </div>
-                            <p x-show="emailError" x-text="emailError"
-                                class="text-red-500 text-xs pl-4 mt-1 mb-2 transition-all"></p>
 
+                            {{-- Email --}}
+                            <div class="input-group">
+                                <input type="email" name="email" id="reg_email" required placeholder=" "
+                                    autocomplete="off"
+                                    class="w-full bg-white/50 dark:bg-white/10 border-2 border-emerald-100 dark:border-white/10 rounded-2xl px-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-0 outline-none transition-all">
+                                <label for="reg_email"
+                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm transition-all pointer-events-none">Email
+                                    Address</label>
+                            </div>
+
+                            {{-- Password --}}
                             <div class="flex gap-3">
-                                <div class="w-1/2">
-                                    <div class="relative">
-                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                            </svg>
-                                        </span>
-                                        <input type="password" name="password" placeholder="Password"
-                                            @input="passwordError = null" autocomplete="new-password"
-                                            :class="{'border-red-500': passwordError, 'border-emerald-200/50 dark:border-white/10': !passwordError}"
-                                            class="w-full bg-white/50 dark:bg-white/10 border rounded-2xl pl-12 pr-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
-                                            required>
-                                    </div>
-                                    <p x-show="passwordError" x-text="passwordError"
-                                        class="text-red-500 text-xs pl-4 mt-1 transition-all"></p>
+                                <div class="w-1/2 input-group">
+                                    <input type="password" name="password" id="reg_password" required placeholder=" "
+                                        class="w-full bg-white/50 dark:bg-white/10 border-2 border-emerald-100 dark:border-white/10 rounded-2xl px-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-0 outline-none transition-all">
+                                    <label for="reg_password"
+                                        class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm transition-all pointer-events-none">Password</label>
                                 </div>
-                                <div class="w-1/2">
-                                    <div class="relative">
-                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        </span>
-                                        <input type="password" name="password_confirmation" placeholder="Confirm"
-                                            autocomplete="new-password"
-                                            class="w-full bg-white/50 dark:bg-white/10 border border-emerald-200/50 dark:border-white/10 rounded-2xl pl-12 pr-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
-                                            required>
-                                    </div>
+                                <div class="w-1/2 input-group">
+                                    <input type="password" name="password_confirmation" id="reg_confirm" required
+                                        placeholder=" "
+                                        class="w-full bg-white/50 dark:bg-white/10 border-2 border-emerald-100 dark:border-white/10 rounded-2xl px-4 py-3.5 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-0 outline-none transition-all">
+                                    <label for="reg_confirm"
+                                        class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm transition-all pointer-events-none">Confirm</label>
                                 </div>
                             </div>
+
                             <div class="flex items-center gap-3">
                                 <input type="checkbox" id="terms" required
                                     class="w-4 h-4 rounded border-emerald-300 text-emerald-500 focus:ring-emerald-500">
@@ -298,6 +298,7 @@
                                         Privacy</span>
                                 </label>
                             </div>
+
                             <button type="submit"
                                 class="w-full money-gradient text-white font-black py-4 rounded-2xl text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
                                 Create Account
@@ -311,7 +312,9 @@
                 </div>
 
                 {{-- Right Panel (Form for Login, Decorative for Register) --}}
-                <div class="w-full md:w-1/2 glass-panel rounded-[32px] p-8 relative overflow-hidden min-h-[500px]">
+                <div class="w-full md:w-1/2 glass-panel rounded-[32px] p-6 relative overflow-hidden"
+                    :class="isLogin ? 'block' : 'hidden md:block'"> {{-- MOBILE FIX: Show if logging in --}}
+
                     {{-- Login Form (shown when Login) --}}
                     <div x-show="isLogin" x-transition:enter="transition ease-out duration-500 delay-200"
                         x-transition:enter-start="opacity-0 translate-x-[20px]"
@@ -329,80 +332,57 @@
                             </p>
                         </div>
 
-                        {{-- Interactive Session Status (Success) --}}
+                        {{-- Session Status --}}
                         @if (session('status'))
-                            <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)"
-                                x-transition.duration.300ms
-                                class="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm shadow-sm flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2">
-                                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span>{{ session('status') }}</span>
-                                </div>
-                                <button @click="show = false" class="text-emerald-500 hover:text-emerald-700"><svg
-                                        class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M6 18L18 6M6 6l12 12" />
-                                    </svg></button>
+                            <div
+                                class="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm shadow-sm">
+                                {{ session('status') }}
                             </div>
                         @endif
 
-                        {{-- Validation Errors (Global Alert - Only show if not attached to specific fields) --}}
-                        @if ($errors->any() && !$errors->has('email') && !$errors->has('password'))
+                        {{-- Login Validation Errors --}}
+                        @if ($errors->any())
                             <div x-data="{ show: true }" x-show="show"
-                                class="mb-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex justify-between items-start">
-                                <ul class="list-disc ml-4">
-                                    @foreach ($errors->all() as $error)
-                                        <li>{{ $error }}</li>
-                                    @endforeach
-                                </ul>
-                                <button @click="show = false" class="text-red-500 hover:text-red-700 ml-2"><svg
-                                        class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M6 18L18 6M6 6l12 12" />
-                                    </svg></button>
+                                x-transition:enter="transition ease-out duration-300"
+                                x-transition:enter-start="opacity-0 -translate-y-2"
+                                x-transition:enter-end="opacity-100 translate-y-0"
+                                class="mb-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm relative">
+                                <button @click="show = false" class="absolute top-2 right-2 text-red-400 hover:text-red-600 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                                    <ul class="list-disc list-inside space-y-1">
+                                        @foreach ($errors->all() as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
                             </div>
                         @endif
 
-                        <form action="{{ route('login') }}" method="POST" class="space-y-5" x-data="{ 
-                            emailError: '{{ $errors->has('name') ? '' : $errors->first('email') }}', 
-                            passwordError: '{{ $errors->has('name') ? '' : $errors->first('password') }}'
-                        }">
+                        <form action="{{ route('login') }}" method="POST" class="space-y-5"
+                            x-data="{ emailError: '', passwordError: '' }">
                             @csrf
-                            <div class="relative">
-                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                </span>
-                                <input type="email" name="email" value="{{ !$errors->has('name') ? old('email') : '' }}"
-                                    placeholder="Email" @input="emailError = null" autocomplete="off"
-                                    :class="{'border-red-500': emailError, 'border-emerald-200/50 dark:border-white/10': !emailError}"
-                                    class="w-full bg-white/50 dark:bg-white/10 border rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
-                                    required>
-                            </div>
-                            <p x-show="emailError" x-text="emailError"
-                                class="text-red-500 text-xs pl-4 mt-1 transition-all duration-300"></p>
 
-                            <div class="relative">
-                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600/50">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                </span>
-                                <input type="password" name="password" placeholder="Password"
-                                    @input="passwordError = null" autocomplete="current-password"
-                                    :class="{'border-red-500': passwordError, 'border-emerald-200/50 dark:border-white/10': !passwordError}"
-                                    class="w-full bg-white/50 dark:bg-white/10 border rounded-2xl pl-12 pr-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-emerald-600/50"
-                                    required>
+                            {{-- Email --}}
+                            <div class="input-group">
+                                <input type="email" name="email" id="login_email" required placeholder=" "
+                                    autocomplete="email"
+                                    class="w-full bg-white/50 dark:bg-white/10 border-2 border-emerald-100 dark:border-white/10 rounded-2xl px-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-0 outline-none transition-all">
+                                <label for="login_email"
+                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm transition-all pointer-events-none">Email</label>
                             </div>
-                            <p x-show="passwordError" x-text="passwordError"
-                                class="text-red-500 text-xs pl-4 mt-1 transition-all duration-300"></p>
+
+                            {{-- Password --}}
+                            <div class="input-group">
+                                <input type="password" name="password" id="login_password" required placeholder=" "
+                                    autocomplete="current-password"
+                                    class="w-full bg-white/50 dark:bg-white/10 border-2 border-emerald-100 dark:border-white/10 rounded-2xl px-4 py-4 text-sm text-emerald-900 dark:text-white focus:border-emerald-500 focus:ring-0 outline-none transition-all">
+                                <label for="login_password"
+                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm transition-all pointer-events-none">Password</label>
+                            </div>
+
                             <div class="flex items-center justify-between">
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="remember"
@@ -414,6 +394,7 @@
                                     class="text-sm text-emerald-600 dark:text-emerald-400 hover:underline font-medium">Forgot
                                     Password?</a>
                             </div>
+
                             <button type="submit"
                                 class="w-full money-gradient text-white font-black py-4 rounded-2xl text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
                                 Sign In
@@ -437,18 +418,6 @@
                         <div
                             class="blob2 w-36 h-36 bg-gradient-to-br from-emerald-300 to-green-400 opacity-70 absolute top-20 left-16 float-animation-delay shadow-xl">
                         </div>
-                        <div
-                            class="blob3 w-28 h-28 bg-gradient-to-br from-teal-400 to-cyan-500 opacity-60 absolute bottom-24 right-16 float-animation shadow-lg">
-                        </div>
-                        <div
-                            class="blob w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-600 opacity-50 absolute bottom-32 left-24 float-animation-delay">
-                        </div>
-                        <div
-                            class="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-gradient-to-tr from-emerald-400/30 to-teal-300/20 blur-xl">
-                        </div>
-                        <div
-                            class="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-green-400/20 to-emerald-300/30 blur-2xl">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -456,8 +425,8 @@
     </main>
 
     {{-- Footer --}}
-    <footer class="p-6 text-center relative z-20">
-        <p class="text-sm text-emerald-700/50 dark:text-emerald-400/50">© 2026 MoneyGement Inc. All rights reserved.</p>
+    <footer class="px-6 py-3 text-center relative z-20 shrink-0">
+        <p class="text-xs text-emerald-700/50 dark:text-emerald-400/50">© 2026 MoneyGement Inc. All rights reserved.</p>
     </footer>
 
 </body>

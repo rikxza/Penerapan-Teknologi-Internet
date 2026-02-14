@@ -6,8 +6,9 @@
         <x-slot name="subtitle">Upload struk belanja untuk input otomatis</x-slot>
 
         {{-- 1. HEADER SECTION --}}
-        <div class="px-8 py-6">
-            <h1 class="text-3xl font-bold text-slate-900 dark:text-white transition-colors duration-500">Scan Struk</h1>
+        <div class="px-4 md:px-8 py-4 md:py-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white transition-colors duration-500">
+                Scan Struk</h1>
             <p
                 class="text-slate-500 dark:text-slate-400 text-xs font-bold tracking-wide uppercase transition-colors duration-500">
                 Upload struk belanja untuk input pengeluaran otomatis dengan AI</p>

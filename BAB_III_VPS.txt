@@ -598,6 +598,66 @@ Lakukan login menggunakan akun yang sudah ada di database lokal untuk memastikan
 
 Gambar 3.26 Dashboard Moneygement Setelah Login di Production
 
+
+Konfigurasi HTTPS (SSL) dengan Certbot
+	Untuk mengamankan transaksi data pengguna, aplikasi perlu menggunakan protokol HTTPS. Kita akan menggunakan Let's Encrypt dan Certbot untuk mendapatkan sertifikat SSL gratis secara otomatis.
+	Syarat utama: Anda harus memiliki domain (contoh: moneygement.my.id) yang sudah diarahkan ke IP Server (34.124.226.208).
+
+Instalasi Certbot
+Instal paket Certbot dan plugin Nginx.
+
+Tabel 3.33 Command Instalasi Certbot
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ $ sudo apt update                                                           │
+│ $ sudo apt install certbot python3-certbot-nginx -y                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Output:                                                                     │
+│ Reading package lists... Done                                               │
+│ Setting up certbot (2.9.0-1ubuntu0.1) ...                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Gambar 3.27 Output Instalasi Certbot
+
+Request Sertifikat SSL
+Jalankan Certbot untuk meminta sertifikat dan mengkonfigurasi Nginx secara otomatis. Ganti `yourdomain.com` dengan nama domain Anda yang sebenarnya.
+
+Tabel 3.34 Command Request SSL
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ $ sudo certbot --nginx -d yourdomain.com                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Interactive Prompts:                                                        │
+│ 1. Enter email address (used for urgent renewal and security notices)       │
+│ 2. Agree to Terms of Service (Y)                                            │
+│ 3. Share email with EFF (N)                                                 │
+│                                                                             │
+│ Output:                                                                     │
+│ Successfully received certificate.                                          │
+│ Certificate is saved at: /etc/letsencrypt/live/yourdomain.com/fullchain.pem │
+│ Key is saved at:         /etc/letsencrypt/live/yourdomain.com/privkey.pem   │
+│ Deploying certificate to VirtualHost /etc/nginx/sites-enabled/moneygement   │
+│ Congratulations! You have successfully enabled HTTPS on https://yourdomain.com│
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Gambar 3.28 Proses Request SSL Certbot
+
+Update Environment Variable
+Ubah `APP_URL` di file `.env` agar menggunakan protokol HTTPS.
+
+Tabel 3.35 Command Update APP_URL
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ $ sudo nano /var/www/moneygement/.env                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Ubah baris:
+`APP_URL=http://34.124.226.208`
+Menjadi:
+`APP_URL=https://yourdomain.com`
+
+Verifikasi HTTPS
+Buka browser dan akses domain Anda dengan `https://`. Pastikan ikon gembok muncul di samping URL.
+
+Gambar 3.29 Tampilan Website Aman dengan HTTPS
+
 Troubleshooting
 	Selama proses deployment, beberapa kendala teknis mungkin ditemui. Berikut adalah daftar masalah umum beserta solusinya:
 

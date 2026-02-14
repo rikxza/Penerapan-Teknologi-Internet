@@ -16,6 +16,21 @@ class AiController extends Controller
         return config('services.gemini.key');
     }
 
+    /**
+     * Parse period from request (e.g. '2025-11') or default to current month.
+     * Returns [Carbon $startOfMonth, Carbon $endOfMonth]
+     */
+    private function parsePeriod(Request $request): array
+    {
+        $period = $request->input('period');
+        if ($period && preg_match('/^(\d{4})-(\d{2})$/', $period, $matches)) {
+            $date = Carbon::createFromDate((int) $matches[1], (int) $matches[2], 1);
+        } else {
+            $date = Carbon::now();
+        }
+        return [$date->copy()->startOfMonth(), $date->copy()->endOfMonth()];
+    }
+
     private function callGemini(string $prompt, ?string $imageBase64 = null, ?string $mimeType = null)
     {
         $apiKey = $this->getGeminiApiKey();
@@ -47,6 +62,7 @@ class AiController extends Controller
             ];
         }
 
+        // Use gemini-2.5-flash model (verified working in tests)
         $response = Http::timeout(60)->post(
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}",
             [
@@ -60,8 +76,14 @@ class AiController extends Controller
 
         $result = $response->json();
 
+        // Check for API errors
+        if (isset($result['error'])) {
+            \Log::error('Gemini API Error: ' . json_encode($result['error']));
+            return null;
+        }
+
         // Debug: Log full response from Gemini
-        \Log::info('Gemini API Full Response: ' . json_encode($result));
+        // \Log::info('Gemini API Full Response: ' . json_encode($result));
 
         return $result['candidates'][0]['content']['parts'][0]['text'] ?? null;
     }
@@ -79,21 +101,42 @@ class AiController extends Controller
         $userId = Auth::id();
         $userName = Auth::user()->name;
 
-        // Ambil context keuangan
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
+        // =============================================================
+        // Ambil SEMUA transaksi user (12 bulan terakhir) agar AI fleksibel
+        // =============================================================
+        $twelveMonthsAgo = Carbon::now()->subMonths(12)->startOfMonth();
 
-        $totalIncome = Transaction::where('user_id', $userId)->where('type', 'income')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
-        $totalExpense = Transaction::where('user_id', $userId)->where('type', 'expense')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
-        $balance = $totalIncome - $totalExpense;
-
-        // Get recent transactions
-        $recentTransactions = Transaction::where('user_id', $userId)
+        $allTransactions = Transaction::where('user_id', $userId)
             ->with('category')
+            ->where('transaction_date', '>=', $twelveMonthsAgo)
             ->orderBy('transaction_date', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function ($t) {
+            ->get();
+
+        // Group transaksi per bulan & hitung summary
+        $monthlySummary = $allTransactions->groupBy(function ($t) {
+            return Carbon::parse($t->transaction_date)->format('Y-m');
+        })->map(function ($transactions, $monthKey) {
+            $monthLabel = Carbon::createFromFormat('Y-m', $monthKey)->translatedFormat('F Y');
+            $isCurrentMonth = $monthKey === Carbon::now()->format('Y-m');
+
+            $income = $transactions->where('type', 'income')->sum('amount');
+            $expense = $transactions->where('type', 'expense')->sum('amount');
+
+            // Limit details to save tokens
+            $limitCategories = $isCurrentMonth ? 5 : 3;
+
+            $topCategories = $transactions->where('type', 'expense')
+                ->groupBy(function ($t) {
+                    return $t->category->name ?? 'Tanpa Kategori';
+                })
+                ->map(function ($group) {
+                    return $group->sum('amount');
+                })
+                ->sortDesc()
+                ->take($limitCategories);
+
+            // Only include detailed transactions for the current month to avoid huge payload
+            $details = $isCurrentMonth ? $transactions->take(10)->map(function ($t) {
                 return [
                     'type' => $t->type,
                     'amount' => 'Rp' . number_format($t->amount, 0, ',', '.'),
@@ -101,18 +144,32 @@ class AiController extends Controller
                     'description' => $t->description,
                     'date' => $t->transaction_date->format('d M Y'),
                 ];
-            });
+            })->values() : [];
 
-        // Get budget data with spending info
+            return [
+                'bulan' => $monthLabel,
+                'pemasukan' => 'Rp' . number_format($income, 0, ',', '.'),
+                'pengeluaran' => 'Rp' . number_format($expense, 0, ',', '.'),
+                'saldo' => 'Rp' . number_format($income - $expense, 0, ',', '.'),
+                'jumlah_transaksi' => $transactions->count(),
+                'kategori_terboros' => $topCategories->map(function ($amount, $name) {
+                    return $name . ': Rp' . number_format($amount, 0, ',', '.');
+                })->values()->toArray(),
+                'detail_transaksi' => $details,
+            ];
+        })->sortKeysDesc()->values();
+
+        // Get all active budgets
         $budgets = \App\Models\Budget::where('user_id', $userId)
-            ->where('end_date', '>=', now())
             ->with('category')
             ->get()
-            ->map(function ($budget) use ($userId, $startOfMonth, $endOfMonth) {
+            ->map(function ($budget) use ($userId) {
+                $currentMonthStart = Carbon::now()->startOfMonth();
+                $currentMonthEnd = Carbon::now()->endOfMonth();
                 $spent = Transaction::where('user_id', $userId)
                     ->where('category_id', $budget->category_id)
                     ->where('type', 'expense')
-                    ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
+                    ->whereBetween('transaction_date', [$currentMonthStart, $currentMonthEnd])
                     ->sum('amount');
 
                 $percentage = $budget->amount > 0 ? round(($spent / $budget->amount) * 100) : 0;
@@ -125,85 +182,26 @@ class AiController extends Controller
                     'sisa' => 'Rp' . number_format(max(0, $budget->amount - $spent), 0, ',', '.'),
                     'persentase' => $percentage . '%',
                     'status' => $status,
+                    'periode' => Carbon::parse($budget->start_date)->format('d M Y') . ' - ' . Carbon::parse($budget->end_date)->format('d M Y'),
                 ];
             });
 
-        // Get top expense category for context
-        $topExpenseCategory = Transaction::where('transactions.user_id', $userId)
-            ->where('transactions.type', 'expense')
-            ->whereBetween('transactions.transaction_date', [$startOfMonth, $endOfMonth])
-            ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
-            ->selectRaw("COALESCE(categories.name, 'Tanpa Kategori') as category_name, SUM(transactions.amount) as total_amount")
-            ->groupByRaw("COALESCE(categories.name, 'Tanpa Kategori')")
-            ->orderByDesc('total_amount')
-            ->first();
-
-        // ---------------------------------------------------------
-        // ANOMALY DETECTION (Disamakan dengan getInsight)
-        // ---------------------------------------------------------
-        $anomalies = collect();
-
-        // 1. Detect unusually large transactions (> 2x average)
-        $avgTransaction = Transaction::where('user_id', $userId)
-            ->where('type', 'expense')
-            ->avg('amount') ?? 0;
-
-        $largeTransactions = Transaction::where('user_id', $userId)
-            ->where('type', 'expense')
-            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-            ->where('amount', '>', $avgTransaction * 2)
-            ->with('category')
-            ->get();
-
-        foreach ($largeTransactions as $t) {
-            $anomalies->push("🔴 Transaksi besar: {$t->description} sebesar Rp" . number_format($t->amount, 0, ',', '.') .
-                " (" . ($t->category->name ?? 'Tanpa Kategori') . ")");
-        }
-
-        // 2. Detect category spending spikes vs last month
-        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
-        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
-
-        $thisMonthByCategory = Transaction::where('user_id', $userId)
-            ->where('type', 'expense')
-            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-            ->selectRaw('category_id, SUM(amount) as total')
-            ->groupBy('category_id')
-            ->pluck('total', 'category_id');
-
-        $lastMonthByCategory = Transaction::where('user_id', $userId)
-            ->where('type', 'expense')
-            ->whereBetween('transaction_date', [$lastMonthStart, $lastMonthEnd])
-            ->selectRaw('category_id, SUM(amount) as total')
-            ->groupBy('category_id')
-            ->pluck('total', 'category_id');
-
-        foreach ($thisMonthByCategory as $catId => $thisMonthTotal) {
-            $lastMonthTotal = $lastMonthByCategory[$catId] ?? 0;
-            if ($lastMonthTotal > 0 && $thisMonthTotal > $lastMonthTotal * 1.5) {
-                $category = \App\Models\Category::find($catId);
-                $increase = round((($thisMonthTotal - $lastMonthTotal) / $lastMonthTotal) * 100);
-                $categoryName = $category->name ?? 'Unknown';
-                $anomalies->push("📈 Kategori {$categoryName} melonjak {$increase}% dibanding bulan lalu");
-            }
-        }
-
-        $anomalyText = "";
-        if ($anomalies->count() > 0) {
-            $anomalyText = "\n- ANOMALI TERDETEKSI:\n" . $anomalies->take(5)->join("\n");
-        }
-        // ---------------------------------------------------------
+        // =============================================================
+        // Build prompt with multi-month context
+        // =============================================================
+        $todayLabel = Carbon::now()->translatedFormat('d F Y');
 
         $prompt = "Kamu adalah 'G-ment', asisten keuangan pribadi yang ramah, gaul, dan solutif. Gunakan Bahasa Indonesia yang santai tapi profesional.\n\n" .
+            "PENTING: Hari ini tanggal {$todayLabel}. Kamu punya data keuangan user dari 12 bulan terakhir. " .
+            "Jawab pertanyaan user berdasarkan BULAN YANG MEREKA TANYAKAN. " .
+            "Jika user bertanya 'pengeluaran bulan Desember', gunakan data bulan Desember. " .
+            "Jika user tidak menyebut bulan tertentu, gunakan data bulan ini (" . Carbon::now()->translatedFormat('F Y') . ").\n\n" .
             "Data User:\n" .
-            "- Nama: {$userName}\n" .
-            "- Pemasukan bulan ini: Rp" . number_format($totalIncome, 0, ',', '.') . "\n" .
-            "- Pengeluaran bulan ini: Rp" . number_format($totalExpense, 0, ',', '.') . "\n" .
-            "- Kategori Terboros: " . ($topExpenseCategory->category_name ?? 'N/A') . " (Rp" . number_format($topExpenseCategory->total_amount ?? 0, 0, ',', '.') . ")\n" .
-            "- Saldo saat ini: Rp" . number_format($balance, 0, ',', '.') . "\n\n" .
-            "- Budget yang diset user:\n" . json_encode($budgets, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n" .
-            $anomalyText . "\n\n" .
-            "- 10 Transaksi terakhir: " . json_encode($recentTransactions, JSON_UNESCAPED_UNICODE) . "\n\n" .
+            "- Nama: {$userName}\n\n" .
+            "== RINGKASAN KEUANGAN PER BULAN ==\n" .
+            json_encode($monthlySummary, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n" .
+            "== BUDGET AKTIF ==\n" .
+            json_encode($budgets, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n" .
             "PENTING: Jika ada budget dengan status 'OVER BUDGET!' atau 'Hampir habis', beri peringatan kepada user!\n\n" .
             "User bertanya: " . $userMessage;
 
@@ -227,11 +225,10 @@ class AiController extends Controller
     /**
      * Fitur 2: Get Insight (Untuk Dashboard Ringkasan)
      */
-    public function getInsight()
+    public function getInsight(Request $request)
     {
         $userId = Auth::id();
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
+        [$startOfMonth, $endOfMonth] = $this->parsePeriod($request);
 
         $totalIncome = Transaction::where('user_id', $userId)->where('type', 'income')->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
 
@@ -311,8 +308,8 @@ class AiController extends Controller
         }
 
         // 2. Detect category spending spikes vs last month
-        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
-        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
+        $lastMonthStart = $startOfMonth->copy()->subMonth()->startOfMonth();
+        $lastMonthEnd = $startOfMonth->copy()->subMonth()->endOfMonth();
 
         $thisMonthByCategory = Transaction::where('user_id', $userId)
             ->where('type', 'expense')
@@ -559,14 +556,16 @@ Jika ada informasi yang tidak terbaca, beri nilai null. Total amount harus berup
     /**
      * Fitur 5: Financial Forecasting
      */
-    public function getForecast()
+    public function getForecast(Request $request)
     {
         $userId = Auth::id();
+        [$startOfMonth, $endOfMonth] = $this->parsePeriod($request);
 
-        // Gather last 3 months data
+        // Gather last 3 months data relative to selected period
+        $threeMonthsBefore = $startOfMonth->copy()->subMonths(3);
         $last3Months = Transaction::where('user_id', $userId)
             ->where('type', 'expense')
-            ->where('transaction_date', '>=', Carbon::now()->subMonths(3))
+            ->whereBetween('transaction_date', [$threeMonthsBefore, $endOfMonth])
             ->orderBy('transaction_date', 'asc')
             ->get()
             ->groupBy(function ($date) {

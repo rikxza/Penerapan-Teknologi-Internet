@@ -63,30 +63,38 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
     </style>
-    <div class="h-screen flex overflow-hidden">
+    <div class="h-screen flex overflow-hidden" x-data="{ sidebarOpen: false }">
 
         {{-- Sidebar --}}
         @include('layouts.sidebar')
 
         {{-- Main Content Area - Scrollable --}}
-        <div class="flex-1 flex flex-col h-screen ml-72 overflow-hidden">
+        <div class="flex-1 flex flex-col h-screen lg:ml-72 overflow-hidden">
 
             {{-- Topbar - Fixed at top --}}
             <header
-                class="glass-header h-20 flex items-center justify-between px-8 shrink-0 z-20 transition-colors duration-300">
-                <div>
-                    <h2 class="text-lg font-bold text-emerald-800 dark:text-white leading-tight">
-                        {{ $header ?? 'Dashboard' }}
-                    </h2>
-                    <p
-                        class="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-bold uppercase tracking-wider">
-                        {{ $subtitle ?? 'Ringkasan Keuangan Anda' }}
-                    </p>
+                class="glass-header h-16 lg:h-20 flex items-center justify-between px-4 lg:px-8 shrink-0 z-20 transition-colors duration-300">
+                <div class="flex items-center gap-3">
+                    {{-- Hamburger Menu (mobile only) --}}
+                    <button @click="sidebarOpen = true" class="lg:hidden p-2 -ml-1 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-slate-500 dark:text-slate-400 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </button>
+                    <div>
+                        <h2 class="text-base lg:text-lg font-bold text-emerald-800 dark:text-white leading-tight">
+                            {{ $header ?? 'Dashboard' }}
+                        </h2>
+                        <p
+                            class="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-bold uppercase tracking-wider hidden sm:block">
+                            {{ $subtitle ?? 'Ringkasan Keuangan Anda' }}
+                        </p>
+                    </div>
                 </div>
 
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 lg:gap-4">
                     {{-- Language Switcher --}}
-                    <div class="flex items-center bg-white/30 dark:bg-slate-700/30 rounded-xl p-1 backdrop-blur-sm">
+                    <div class="hidden sm:flex items-center bg-white/30 dark:bg-slate-700/30 rounded-xl p-1 backdrop-blur-sm">
                         <a href="{{ route('lang.switch', 'id') }}"
                            class="px-2 py-1 rounded-lg text-[10px] font-bold transition-all {{ app()->getLocale() == 'id' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-emerald-500' }}">
                             ID
@@ -111,7 +119,7 @@
                         </svg>
                     </button>
 
-                    <div class="flex items-center gap-3 border-r pr-6 border-slate-100 dark:border-slate-700">
+                    <div class="flex items-center gap-2 lg:gap-3 border-r pr-3 lg:pr-6 border-slate-100 dark:border-slate-700">
 
                         {{-- Icon Notifikasi (Bell) --}}
                         <div class="relative" x-data="{ open: false }">
@@ -202,7 +210,7 @@
                             </div>
 
                             {{-- Info Nama & Status --}}
-                            <div class="text-left hidden md:block">
+                            <div class="text-left hidden lg:block">
                                 <p
                                     class="text-xs font-bold text-slate-800 dark:text-slate-200 leading-none group-hover:text-emerald-500 transition-colors">
                                     {{ Auth::user()->name }}
@@ -276,7 +284,7 @@
             x-transition:leave="transition ease-in duration-200"
             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
             x-transition:leave-end="opacity-0 translate-y-10 scale-95"
-            class="bg-white dark:bg-slate-900 w-[350px] h-[480px] rounded-[2rem] shadow-2xl border border-emerald-200/50 dark:border-slate-700 flex flex-col overflow-hidden mb-4">
+            class="bg-white dark:bg-slate-900 w-[calc(100vw-3rem)] sm:w-[350px] h-[420px] sm:h-[480px] rounded-[2rem] shadow-2xl border border-emerald-200/50 dark:border-slate-700 flex flex-col overflow-hidden mb-4">
 
             {{-- Header --}}
             <div

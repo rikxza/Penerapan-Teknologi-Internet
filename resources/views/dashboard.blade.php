@@ -45,7 +45,7 @@
     <div class="min-h-screen p-6 md:p-8">
 
         {{-- Header Greeting --}}
-        <div class="mb-8 flex items-center justify-between">
+        <div class="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-black text-emerald-800 dark:text-white">
                     {{ __('Welcome') }}, {{ explode(' ', Auth::user()->name)[0] }}! 👋
@@ -273,7 +273,7 @@
 
                 <div class="flex-1 glass-card rounded-xl p-4 mb-4 overflow-y-auto hide-scrollbar max-h-48"
                     x-data="{ insight: '⏳ Menganalisis data keuangan...', loading: true }" x-init="setTimeout(() => {
-                        fetch('{{ route('ai.insight') }}', { headers: { 'Accept': 'application/json' } })
+                        fetch('{{ route('ai.insight') }}?period={{ $selectedPeriod }}', { headers: { 'Accept': 'application/json' } })
                         .then(r => r.json())
                         .then(d => { insight = d.insight || d.message || 'Tidak ada insight'; loading = false })
                         .catch(e => { insight = '⚠️ Gagal memuat insight.'; loading = false })
@@ -369,7 +369,7 @@
             {{-- Forecast Card --}}
             <div class="glass-card bento-card rounded-[2rem] p-6 relative overflow-hidden"
                 x-data="{ forecast: null, loading: true }" x-init="setTimeout(() => {
-                        fetch('{{ route('ai.forecast') }}', { headers: { 'Accept': 'application/json' } })
+                        fetch('{{ route('ai.forecast') }}?period={{ $selectedPeriod }}', { headers: { 'Accept': 'application/json' } })
                         .then(r => r.json())
                         .then(d => { forecast = d.data; loading = false })
                         .catch(e => { loading = false })
